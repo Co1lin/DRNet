@@ -1,7 +1,10 @@
 import os
+import random
 import numpy as np
+import torch
 from torch.utils import data
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 from utils.tools import read_json_file, read_pkl_file
 from utils import pc_util
@@ -11,11 +14,13 @@ from net_utils.transforms import SubsamplePoints
 
 from external import binvox_rw
 
-class ScanSet(Dataset):
+class DRSet(Dataset):
 
-    def __init__(self, mode: str = None):
+    def __init__(self, mode: str = None, phase: str = None, 
+                 datasets_root_path = 'datasets'):
         """
         :param mode: 'train', 'val' or 'test'
+        :param phase: 'detection' or 'completion'
         """
         super().__init__()
 
@@ -24,9 +29,10 @@ class ScanSet(Dataset):
         self.use_height = True
         self.augment = mode == 'train'
 
-        self.phase = ''
+        self.mode = mode
+        self.phase = phase
 
-        datasets_root_path = 'datasets'
+        self.datasets_root_path = datasets_root_path
         content_file = os.path.join(datasets_root_path, 'splits/fullscan', f'scannetv2_{mode}.json')
         # [{"scan": "...full_scan.npz", "bbox": "...bbox.pkl"}, ]
         self.content_list = read_json_file(content_file)
@@ -227,7 +233,49 @@ class ScanSet(Dataset):
             shape_data_list.append(data)
 
         return recursive_cat_to_numpy(shape_data_list)
+        
+def get_dataloader(mode: str = None, phase: str = None):
+    """
+    :param mode: 'train', 'val' or 'test'
+    :param phase: 'detection' or 'completion'
+    """
+    default_collate = torch.utils.data.dataloader.default_collate
+    def collate_fn(batch):
+        '''
+        data collater
+        :param batch:
+        :return: collated_batch
+        '''
+        collated_batch = {}
+        for key in batch[0]:
+            if key not in ['shapenet_catids', 'shapenet_ids']:
+                collated_batch[key] = default_collate([elem[key] for elem in batch])
+            else:
+                collated_batch[key] = [elem[key] for elem in batch]
 
+        return collated_batch
+
+    # Ref: https://pytorch.org/docs/master/notes/randomness.html#dataloader
+    g = torch.Generator()
+    g.manual_seed(0)
+
+    def seed_worker(worker_id):
+        worker_seed = torch.initial_seed() % 2**32
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
+    dataset = DRSet(mode, phase)
+    sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(
+        dataset=dataset,
+        sampler=sampler,
+        num_workers=16,
+        batch_size=8,
+        shuffle=(mode == 'train'),
+        collate_fn=collate_fn,
+        worker_init_fn=seed_worker,
+        generator=g,
+    )
 
 def recursive_cat_to_numpy(data_list):
     '''Covert a list of dict to dict of numpy arrays.'''
