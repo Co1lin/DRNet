@@ -1,3 +1,4 @@
-[submodule "modules/Pointnet2_PyTorch"]
-	path = modules/Pointnet2_PyTorch
+
+[submodule "external/Pointnet2_PyTorch"]
+	path = external/Pointnet2_PyTorch
 	url = https://github.com/Co1lin/Pointnet2_PyTorch.git
