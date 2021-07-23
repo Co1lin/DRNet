@@ -12,13 +12,15 @@ from utils import pc_util
 from net_utils.libs import random_sampling_by_instance, rotz, flip_axis_to_camera
 from net_utils.transforms import SubsamplePoints
 
+from data.scannet_config import ScannetConfig
+
 from external import binvox_rw
 
 class DRSet(Dataset):
 
     def __init__(self, mode: str = None, phase: str = None, 
                  datasets_root_path = 'datasets'):
-        """
+        r"""
         :param mode: 'train', 'val' or 'test'
         :param phase: 'detection' or 'completion'
         """
@@ -47,6 +49,8 @@ class DRSet(Dataset):
         self.shapenetid2class = { class_id: i 
             for i, class_id in enumerate(list(self.ScanNet_OBJ_CLASS_IDS))
         }
+
+        self.dataset_config = ScannetConfig()
     
     def __len__(self):
         return len(self.content_list)
@@ -235,7 +239,7 @@ class DRSet(Dataset):
         return recursive_cat_to_numpy(shape_data_list)
         
 def get_dataloader(mode: str = None, phase: str = None):
-    """
+    r"""
     :param mode: 'train', 'val' or 'test'
     :param phase: 'detection' or 'completion'
     """
@@ -278,7 +282,7 @@ def get_dataloader(mode: str = None, phase: str = None):
     )
 
 def recursive_cat_to_numpy(data_list):
-    '''Covert a list of dict to dict of numpy arrays.'''
+    r'''Covert a list of dict to dict of numpy arrays.'''
     out_dict = {}
     for key, value in data_list[0].items():
         if isinstance(value, np.ndarray):

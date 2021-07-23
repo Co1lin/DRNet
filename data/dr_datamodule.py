@@ -1,12 +1,11 @@
 import pytorch_lightning as pl
-from data.dataset import DRSet, get_dataloader
+from data.drset import DRSet, get_dataloader
 
 class DRDataModule(pl.LightningDataModule):
 
     def __init__(self, phase: str = None, 
                  datasets_root_path = 'datasets'):
         super.__init__()
-        
         self.phase = phase
         self.datasets_root_path = datasets_root_path
     
@@ -14,7 +13,7 @@ class DRDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: str = None):
-        """
+        r"""
         :param stage: 'fit' or 'test' 
         """
         if stage == 'fit':
