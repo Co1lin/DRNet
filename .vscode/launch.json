@@ -5,10 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "test",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--mode", "test"],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "train",
             "type": "python",
             "request": "launch",
-            "program": "train.py",
+            "program": "main.py",
             "console": "integratedTerminal"
         },
         {
