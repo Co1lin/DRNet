@@ -273,8 +273,8 @@ def get_dataloader(mode: str = None, phase: str = None):
     dataloader = DataLoader(
         dataset=dataset,
         # sampler=sampler,
-        # num_workers=16,
-        # batch_size=8,
+        num_workers=16,
+        batch_size=8,
         # shuffle=(mode == 'train'),
         collate_fn=collate_fn,
         worker_init_fn=seed_worker,

@@ -180,7 +180,7 @@ class DRNet(pl.LightningModule):
             end_points['iou_stats'] = iou_stats
         return end_points
 
-    def training_step(self, batch, batch_idx):
+    def _common_step(self, batch, batch_idx):
         r"""
         :return: 
         """
@@ -276,11 +276,19 @@ class DRNet(pl.LightningModule):
         end_points['loss'] = total_loss['total']
         return end_points
     
-    '''
-    def validation_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx):
+        out = self._common_step(batch, batch_idx)
+        self.log('train_loss', out['loss'])
+        return out
 
-        pass
-    '''
+    def validation_step(self, batch, batch_idx):
+        out = self._common_step(batch, batch_idx)
+        self.log('val_loss', out['loss'])
+        return out
+
+    # def test_step(self, batch, batch_idx):
+
+    #     pass
     
     def configure_optimizers(self):
         optimizer = optim.AdamW(
