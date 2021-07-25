@@ -23,6 +23,9 @@ transform_shapenet = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
 
 num_processes = 32
 
+from data.scannet_config import ScannetConfig
+dataset_config_obj = ScannetConfig()
+
 class APCalculator(object):
     ''' Calculating Average Precision '''
 
@@ -151,13 +154,13 @@ def parse_predictions(est_data, gt_data, config_dict):
     pred_center = est_data['center']  # B,num_proposal,3
     pred_heading_class = torch.argmax(est_data['heading_scores'], -1)  # B,num_proposal
     heading_residuals = est_data['heading_residuals_normalized'] * (
-                np.pi / config_dict['dataset_config'].num_heading_bin)  # Bxnum_proposalxnum_heading_bin
+                np.pi / dataset_config_obj.num_heading_bin)  # Bxnum_proposalxnum_heading_bin
     pred_heading_residual = torch.gather(heading_residuals, 2,
                                          pred_heading_class.unsqueeze(-1))  # B,num_proposal,1
     pred_heading_residual.squeeze_(2)
     pred_size_class = torch.argmax(est_data['size_scores'], -1)  # B,num_proposal
     size_residuals = est_data['size_residuals_normalized'] * torch.from_numpy(
-        config_dict['dataset_config'].mean_size_arr.astype(np.float32)).cuda().unsqueeze(0).unsqueeze(0)
+        dataset_config_obj.mean_size_arr.astype(np.float32)).cuda().unsqueeze(0).unsqueeze(0)
     pred_size_residual = torch.gather(size_residuals, 2,
                                       pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, 1,
                                                                                          3))  # B,num_proposal,1,3
@@ -174,9 +177,9 @@ def parse_predictions(est_data, gt_data, config_dict):
     pred_center_upright_camera = flip_axis_to_camera(pred_center.detach().cpu().numpy())
     for i in range(bsize):
         for j in range(num_proposal):
-            heading_angle = config_dict['dataset_config'].class2angle( \
+            heading_angle = dataset_config_obj.class2angle( \
                 pred_heading_class[i, j].detach().cpu().numpy(), pred_heading_residual[i, j].detach().cpu().numpy())
-            box_size = config_dict['dataset_config'].class2size( \
+            box_size = dataset_config_obj.class2size( \
                 int(pred_size_class[i, j].detach().cpu().numpy()), pred_size_residual[i, j].detach().cpu().numpy())
             corners_3d_upright_camera = get_3d_box(box_size, -heading_angle, pred_center_upright_camera[i, j, :])
             pred_corners_3d_upright_camera[i, j] = corners_3d_upright_camera
@@ -282,12 +285,12 @@ def assembly_pred_map_cls(eval_dict, parsed_predictions, config_dict, mesh_outpu
         if config_dict['per_class_proposal']:
             if mesh_outputs is None:
                 cur_list = []
-                for ii in range(config_dict['dataset_config'].num_class):
+                for ii in range(dataset_config_obj.num_class):
                     cur_list += [(ii, pred_corners_3d_upright_camera[i, j], sem_cls_probs[i, j, ii] * obj_prob[i, j]) \
                                  for j in range(N_proposals) if
                                  pred_mask[i, j] == 1 and obj_prob[i, j] > config_dict['conf_thresh']]
             else:
-                sample_idx = [(ii, j) for ii in range(config_dict['dataset_config'].num_class) for j in
+                sample_idx = [(ii, j) for ii in range(dataset_config_obj.num_class) for j in
                               range(N_proposals) if
                               pred_mask[i, j] == 1 and obj_prob[i, j] > config_dict['conf_thresh']]
 
@@ -356,10 +359,10 @@ def parse_groundtruths(gt_data, config_dict):
     for i in range(bsize):
         for j in range(K2):
             if box_label_mask[i, j] == 0: continue
-            heading_angle = config_dict['dataset_config'].class2angle(heading_class_label[i, j].detach().cpu().numpy(),
+            heading_angle = dataset_config_obj.class2angle(heading_class_label[i, j].detach().cpu().numpy(),
                                                                       heading_residual_label[
                                                                           i, j].detach().cpu().numpy())
-            box_size = config_dict['dataset_config'].class2size(int(size_class_label[i, j].detach().cpu().numpy()),
+            box_size = dataset_config_obj.class2size(int(size_class_label[i, j].detach().cpu().numpy()),
                                                                 size_residual_label[i, j].detach().cpu().numpy())
             corners_3d_upright_camera = get_3d_box(box_size, -heading_angle, gt_center_upright_camera[i, j, :])
             gt_corners_3d_upright_camera[i, j] = corners_3d_upright_camera

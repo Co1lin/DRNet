@@ -42,6 +42,16 @@ class DRNet(pl.LightningModule):
         # losses
         self.detection_loss = DetectionLoss()
         self.completion_loss = ONet_Loss()
+        
+        self.eval_config = {
+            'remove_empty_box': False,
+            'use_3d_nms': True,
+            'nms_iou': 0.25,
+            'use_old_type_nms': False,
+            'cls_nms': True,
+            'per_class_proposal': True,
+            'conf_thresh': 0.05,
+        }
 
     def forward(self, batch):
         
@@ -68,8 +78,8 @@ class DRNet(pl.LightningModule):
         if_proposal_feature = (self.phase == 'completion')
         end_points, proposal_features = self.proposal(xyz, features, end_points, if_proposal_feature)
 
-        eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.cfg.eval_config)
-        parsed_gts = parse_groundtruths(batch, self.cfg.eval_config)
+        eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.eval_config)
+        parsed_gts = parse_groundtruths(batch, self.eval_config)
 
         # completion
         evaluate_mesh_mAP = True if self.phase == 'completion' and self.generate_mesh and self.evaluate_mesh_mAP else False
@@ -77,7 +87,7 @@ class DRNet(pl.LightningModule):
         if self.phase == 'completion':
             # use 3D NMS to generate sample ids.
             batch_sample_ids = eval_dict['pred_mask']
-            # dump_threshold = self.cfg.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
+            # dump_threshold = self.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
             dump_threshold = 0.05 if evaluate_mesh_mAP else 0.5
             BATCH_PROPOSAL_IDs = self._get_proposal_id(end_points, batch, mode='random', batch_sample_ids=batch_sample_ids, DUMP_CONF_THRESH=dump_threshold)
 
@@ -148,7 +158,7 @@ class DRNet(pl.LightningModule):
             pred_mesh_dict = {'meshes': meshes, 'proposal_ids': BATCH_PROPOSAL_IDs}
             parsed_predictions = self._fit_mesh_to_scan(pred_mesh_dict, parsed_predictions, eval_dict, inputs['point_clouds'], dump_threshold)
         pred_mesh_dict = pred_mesh_dict if self.evaluate_mesh_mAP else None
-        eval_dict = assembly_pred_map_cls(eval_dict, parsed_predictions, self.cfg.eval_config, mesh_outputs=pred_mesh_dict, voxel_size=voxel_size)
+        eval_dict = assembly_pred_map_cls(eval_dict, parsed_predictions, self.eval_config, mesh_outputs=pred_mesh_dict, voxel_size=voxel_size)
 
         gt_mesh_dict = {'shapenet_catids': batch['shapenet_catids'],
                         'shapenet_ids': batch['shapenet_ids']} if evaluate_mesh_mAP else None
@@ -175,6 +185,7 @@ class DRNet(pl.LightningModule):
         :return: 
         """
         inputs = {'point_clouds': batch['point_clouds']}
+        x = torch.zeros(5)
         end_points = {}
         
         # pointnet++ backbone
@@ -197,8 +208,8 @@ class DRNet(pl.LightningModule):
         if_proposal_feature = (self.phase == 'completion')
         end_points, proposal_features = self.proposal(xyz, features, end_points, if_proposal_feature)
 
-        eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.cfg.eval_config)
-        parsed_gts = parse_groundtruths(batch, self.cfg.eval_config)
+        eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.eval_config)
+        parsed_gts = parse_groundtruths(batch, self.eval_config)
 
         # completion
         evaluate_mesh_mAP = True if self.phase == 'completion' and self.generate_mesh and self.evaluate_mesh_mAP else False
@@ -206,7 +217,7 @@ class DRNet(pl.LightningModule):
         if self.phase == 'completion':
             # use 3D NMS to generate sample ids.
             batch_sample_ids = eval_dict['pred_mask']
-            # dump_threshold = self.cfg.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
+            # dump_threshold = self.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
             dump_threshold = 0.05 if evaluate_mesh_mAP else 0.5
             BATCH_PROPOSAL_IDs = self._get_proposal_id(end_points, batch, mode='random', batch_sample_ids=batch_sample_ids, DUMP_CONF_THRESH=dump_threshold)
 
@@ -270,20 +281,41 @@ class DRNet(pl.LightningModule):
 
         pass
     '''
-
+    
     def configure_optimizers(self):
-
-        pass
+        optimizer = optim.AdamW(
+            self.parameters(), lr=1e-3,
+            betas=[0.9, 0.999],
+            eps=1e-8,
+            weight_decay=0
+        )
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer,
+            patience=20,
+            factor=0.1,
+            threshold=0.01
+        )
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler': scheduler,
+                'monitor': 'val_loss',
+            }
+        }
 
 
     def compute_loss(self, est_data, gt_data):
         end_points, completion_loss = est_data[:2]
-        detection_loss = self.detection_loss(end_points, gt_data, self.dataset_config)
+        detection_loss = self.detection_loss(end_points, gt_data, self.dataset_config, self.device)
         if self.phase == 'completion':
             completion_loss = self.completion_loss(completion_loss)
-        total_loss = {**detection_loss, 'completion_loss': completion_loss['completion_loss'], 
-                      'mask_loss': completion_loss['mask_loss']}
-        total_loss['total'] += completion_loss['total_loss']
+            total_loss = {**detection_loss, 
+                        'completion_loss': completion_loss['completion_loss'], 
+                        'mask_loss': completion_loss['mask_loss']}
+            total_loss['total'] += completion_loss['total_loss']
+        else:
+            total_loss = detection_loss
+        return total_loss
 
 
     def _get_proposal_id(self, end_points, data, mode='random', batch_sample_ids=None, DUMP_CONF_THRESH=-1.):
@@ -295,7 +327,7 @@ class DRNet(pl.LightningModule):
         '''
         batch_size, MAX_NUM_OBJ = data['box_label_mask'].shape
         NUM_PROPOSALS = end_points['center'].size(1)
-        object_limit_per_scene = self.cfg.config['data']['completion_limit_in_train']
+        object_limit_per_scene = 10
         proposal_id_list = []
 
         if mode == 'objectness' or batch_sample_ids is not None:
@@ -320,7 +352,7 @@ class DRNet(pl.LightningModule):
                 elif mode == 'nn':
                     sample_ids = torch.argsort(dist1[0])[:object_limit_per_scene]
                 elif mode == 'objectness':
-                    # sample_ids = torch.multinomial((objectness_probs[batch_id]>=self.cfg.eval_config['conf_thresh']).cpu().float(), num_samples=object_limit_per_scene, replacement=True)
+                    # sample_ids = torch.multinomial((objectness_probs[batch_id]>=self.eval_config['conf_thresh']).cpu().float(), num_samples=object_limit_per_scene, replacement=True)
                     objectness_sort = torch.argsort(objectness_probs[batch_id], descending=True)
                     gt_ids = np.unique(proposal_to_gt_box_w_cls[objectness_sort, 1].cpu().numpy(), return_index=True)[1]
                     gt_ids = np.hstack([gt_ids, np.setdiff1d(range(len(objectness_sort)), gt_ids, assume_unique=True)])[
@@ -447,3 +479,5 @@ class DRNet(pl.LightningModule):
 
         parsed_predictions['pred_corners_3d_upright_camera'] = pred_corners_3d_upright_camera
         return parsed_predictions
+
+    

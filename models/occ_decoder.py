@@ -1,10 +1,10 @@
 import torch.nn as nn
-from .layers import (
+from models.layers import (
     CResnetBlockConv1d,
     CBatchNorm1d, CBatchNorm1d_legacy,
 )
 import torch.nn.functional as F
-from models.iscnet.modules.layers import ResnetBlockFC
+from models.layers import ResnetBlockFC
 
 class SimpleDecoder(nn.Module):
     ''' Decoder class.

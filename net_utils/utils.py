@@ -9,7 +9,6 @@ import random
 import torch
 import torch.nn as nn
 from torch.utils import model_zoo
-from models.registers import METHODS
 import sys
 from models import method_paths
 from torch.utils.tensorboard import SummaryWriter

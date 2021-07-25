@@ -269,17 +269,18 @@ def get_dataloader(mode: str = None, phase: str = None):
         random.seed(worker_seed)
 
     dataset = DRSet(mode, phase)
-    sampler = DistributedSampler(dataset)
+    # sampler = DistributedSampler(dataset)
     dataloader = DataLoader(
         dataset=dataset,
-        sampler=sampler,
-        num_workers=16,
-        batch_size=8,
-        shuffle=(mode == 'train'),
+        # sampler=sampler,
+        # num_workers=16,
+        # batch_size=8,
+        # shuffle=(mode == 'train'),
         collate_fn=collate_fn,
         worker_init_fn=seed_worker,
         generator=g,
     )
+    return dataloader
 
 def recursive_cat_to_numpy(data_list):
     r'''Covert a list of dict to dict of numpy arrays.'''

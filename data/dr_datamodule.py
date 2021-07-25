@@ -5,7 +5,10 @@ class DRDataModule(pl.LightningDataModule):
 
     def __init__(self, phase: str = None, 
                  datasets_root_path = 'datasets'):
-        super.__init__()
+        r"""
+        :param phase: 'detection' or 'completion'
+        """
+        super().__init__()
         self.phase = phase
         self.datasets_root_path = datasets_root_path
     
