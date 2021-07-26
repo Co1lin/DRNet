@@ -1,3 +1,4 @@
+name: test_det
 mode: test
 phase: detection
 
@@ -21,6 +22,6 @@ data:
 
 generation:
   evaluate_mesh_mAP: false
-  export_shape: false
   generate_mesh: false
   dump_results: false
+  dump_path: 'visualized'

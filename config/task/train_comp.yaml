@@ -1,5 +1,9 @@
+name: train_comp
 mode: train
 phase: completion
+
+resume: false
+finetune: true
 
 batch_size: 4
 epochs: 480
@@ -7,13 +11,13 @@ epochs: 480
 freeze: ['backbone', 'voting', 'proposal']
 
 optimizer:
-  lr: [1e-3, 4e-4]
+  lr: [1e-4, 4e-4]
   betas: [0.9, 0.999]
   eps: 1e-8
   
   patience: 100
   factor: 0.1
-  threshhold: 0.01
+  threshold: 0.01
 
 data:
   dataset: 'datasets'

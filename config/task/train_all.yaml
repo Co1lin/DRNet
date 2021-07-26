@@ -1,5 +1,9 @@
+name: train_all
 mode: train
 phase: completion
+
+resume: false
+finetune: true
 
 batch_size: 4
 epochs: 480
@@ -13,7 +17,7 @@ optimizer:
   
   patience: 100
   factor: 0.1
-  threshhold: 0.01
+  threshold: 0.01
 
 data:
   dataset: 'datasets'

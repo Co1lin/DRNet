@@ -22,9 +22,6 @@ from models.loss import DetectionLoss, ONet_Loss, compute_objectness_loss
 class DRNet(pl.LightningModule):
 
     def __init__(self, config = None):
-        r"""
-        :param export_shape: if output shape voxels for visualization
-        """
         super().__init__()
         
         # configs
@@ -35,8 +32,9 @@ class DRNet(pl.LightningModule):
         self.backbone = Pointnet2Backbone()
         self.voting = VotingModule()
         self.proposal = ProposalModule()
-        self.skip_propagation = SkipPropagation()
-        self.completion = ONet(self.cfg.generation.generate_mesh)
+        if self.cfg.phase == 'completion':
+            self.skip_propagation = SkipPropagation()
+            self.completion = ONet(self.cfg.generation.generate_mesh)
 
         # losses
         self.detection_loss = DetectionLoss()

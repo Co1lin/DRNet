@@ -1,9 +1,8 @@
 defaults:
   - task: train_comp
 
-gpus: [1, 2]
-num_workers: 16
+gpus: [0,1,2]
+num_workers: 24
 seed: 100
 
-resume: false
 weight: ''

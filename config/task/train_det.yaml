@@ -1,7 +1,11 @@
+name: train_det
 mode: train
 phase: detection
 
-batch_size: 4
+resume: false
+finetune: false
+
+batch_size: 15
 epochs: 480
 
 freeze: []
@@ -33,7 +37,6 @@ data:
 
 generation:
   evaluate_mesh_mAP: false
-  export_shape: false
   generate_mesh: false
   dump_results: false
   dump_path: 'visualized'

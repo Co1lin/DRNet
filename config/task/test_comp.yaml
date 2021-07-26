@@ -1,3 +1,4 @@
+name: test_comp
 mode: test
 phase: completion
 
@@ -20,7 +21,7 @@ data:
   use_cls_for_completion: false
 
 generation:
-  evaluate_mesh_mAP: false
-  export_shape: false
-  generate_mesh: false
-  dump_results: false
+  evaluate_mesh_mAP: true
+  generate_mesh: true
+  dump_results: true
+  dump_path: 'visualized'
