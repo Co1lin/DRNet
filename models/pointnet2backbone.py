@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+import pytorch_lightning as pl
 from external.pointnet2_ops_lib.pointnet2_ops.pointnet2_modules import PointnetSAModuleVotes, PointnetFPModule
 
-class Pointnet2Backbone(nn.Module):
+class Pointnet2Backbone(pl.LightningModule):
 
     def __init__(self):
         super().__init__()

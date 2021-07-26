@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.distributions as dist
 from torch.nn import functional as F
+import pytorch_lightning as pl
 
 from models.encoder_latent import Encoder_Latent
 from models.occ_decoder import DecoderCBatchNorm
@@ -10,7 +11,7 @@ from models.occ_decoder import DecoderCBatchNorm
 from external.common import make_3d_grid
 from data.scannet_config import ScannetConfig
 
-class ONet(nn.Module):
+class ONet(pl.LightningModule):
     ''' Occupancy Network class.
 
     Args:

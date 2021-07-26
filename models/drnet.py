@@ -17,7 +17,6 @@ from net_utils.ap_helper import parse_predictions, parse_groundtruths, assembly_
 from net_utils.libs import flip_axis_to_depth, extract_pc_in_box3d, flip_axis_to_camera
 from net_utils.box_util import get_3d_box
 from data.scannet_config import ScannetConfig
-
 from models.loss import DetectionLoss, ONet_Loss, compute_objectness_loss
 
 class DRNet(pl.LightningModule):
@@ -52,6 +51,11 @@ class DRNet(pl.LightningModule):
             'per_class_proposal': True,
             'conf_thresh': 0.05,
         }
+        
+        # freeze
+        for m in self.cfg.freeze:
+            module = getattr(self, m)
+            module.freeze()
 
         # for test
         self.AP_IOU_THRESHOLDS = [0.5]
@@ -59,6 +63,7 @@ class DRNet(pl.LightningModule):
             APCalculator(iou_thresh, self.dataset_config.class2type, self.cfg.generation.evaluate_mesh_mAP) 
             for iou_thresh in self.AP_IOU_THRESHOLDS
         ]
+
 
     def forward(self, batch):
         
@@ -191,6 +196,7 @@ class DRNet(pl.LightningModule):
             end_points['iou_stats'] = iou_stats
         return end_points
 
+
     def _common_step(self, batch, batch_idx):
         r"""
         :return: 
@@ -284,15 +290,18 @@ class DRNet(pl.LightningModule):
         end_points['loss'] = total_loss['total']
         return end_points
     
+
     def training_step(self, batch, batch_idx):
         out = self._common_step(batch, batch_idx)
         self.log('train_loss', out['loss'])
         return out
 
+
     def validation_step(self, batch, batch_idx):
         out = self._common_step(batch, batch_idx)
         self.log('val_loss', out['loss'])
         return out
+
 
     def test_step(self, batch, batch_idx):
         out = self(batch)
@@ -316,7 +325,8 @@ class DRNet(pl.LightningModule):
         # visualize intermediate results.
         if self.cfg.generation.dump_results:
             self._visualize_step(batch_idx, batch, out, eval_dict)
-        
+
+
     def test_epoch_end(self, outputs):
          # Evaluate average precision
         for i, ap_calculator in enumerate(self.ap_calculator_list):
@@ -325,6 +335,7 @@ class DRNet(pl.LightningModule):
             for key in metrics_dict:
                 print(f'eval {key}: {metrics_dict[key]}')
     
+
     def configure_optimizers(self):
         cfg = self.cfg.optimizer
         optimizer = optim.AdamW(
@@ -411,6 +422,7 @@ class DRNet(pl.LightningModule):
             proposal_id_list.append(proposal_to_gt_box_w_cls.unsqueeze(0))
         
         return torch.cat(proposal_id_list, dim=0)
+
 
     def _fit_mesh_to_scan(self, pred_mesh_dict, parsed_predictions, eval_dict, input_scan, dump_threshold):
         '''fit meshes to input scan'''
@@ -523,6 +535,7 @@ class DRNet(pl.LightningModule):
 
         parsed_predictions['pred_corners_3d_upright_camera'] = pred_corners_3d_upright_camera
         return parsed_predictions
+
 
     def _visualize_step(self, batch_idx, gt_data, our_data, eval_dict, inference_switch=False):
         ''' Performs a visualization step.
@@ -671,6 +684,7 @@ class DRNet(pl.LightningModule):
                 fout.write('\n')
             fout.close()
 
+
     def _select_data(self, data, BATCH_PROPOSAL_IDs):
         '''
         Select those proposals that have a corresponding gt object shape (to the gt boxes.)
@@ -702,3 +716,5 @@ class DRNet(pl.LightningModule):
 
         return input_points_for_completion, \
                input_points_occ_for_completion, cls_codes_for_completion
+
+

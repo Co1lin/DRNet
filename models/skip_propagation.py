@@ -5,11 +5,12 @@
 
 import torch
 from torch import nn
+import pytorch_lightning as pl
 from external.pointnet2_ops_lib.pointnet2_ops.pointnet2_modules import STN_Group
 from models.layers import ResnetPointnet
 from models.pointseg import PointSeg, get_loss
 
-class SkipPropagation(nn.Module):
+class SkipPropagation(pl.LightningModule):
     ''' Back-Propagte box proposal features to input points
     '''
     def __init__(self):

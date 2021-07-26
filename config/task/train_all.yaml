@@ -1,5 +1,5 @@
 mode: train
-phase: detection
+phase: completion
 
 batch_size: 4
 epochs: 480
@@ -7,13 +7,13 @@ epochs: 480
 freeze: []
 
 optimizer:
-  lr: [1e-3, 4e-4]
+  lr: [1e-4, 5e-5]
   betas: [0.9, 0.999]
   eps: 1e-8
   
   patience: 100
   factor: 0.1
-  threshold: 0.01
+  threshhold: 0.01
 
 data:
   dataset: 'datasets'
@@ -36,4 +36,3 @@ generation:
   export_shape: false
   generate_mesh: false
   dump_results: false
-  dump_path: 'visualized'

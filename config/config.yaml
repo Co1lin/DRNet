@@ -1,5 +1,5 @@
 defaults:
-  - task: train_det
+  - task: train_comp
 
 gpus: [1, 2]
 num_workers: 16

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
+import pytorch_lightning as pl
 from data.scannet_config import ScannetConfig
 
 from external.pointnet2_ops_lib.pointnet2_ops.pointnet2_modules import PointnetSAModuleVotes, PointnetFPModule
@@ -37,7 +37,7 @@ def decode_scores(net, end_points, num_heading_bin, num_size_cluster):
     return end_points
 
 
-class ProposalModule(nn.Module):
+class ProposalModule(pl.LightningModule):
     def __init__(self):
         '''
         Skeleton Extraction Net to obtain partial skeleton from a partial scan (refer to PointNet++).

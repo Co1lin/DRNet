@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
 
-class VotingModule(nn.Module):
+class VotingModule(pl.LightningModule):
     def __init__(self):
         '''
         Skeleton Extraction Net to obtain partial skeleton from a partial scan (refer to PointNet++).
