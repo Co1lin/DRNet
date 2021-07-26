@@ -20,7 +20,7 @@ class ONet(nn.Module):
         p0_z (dist): prior distribution for latent code z
         device (device): torch device
     '''
-    def __init__(self, generate_mesh: bool = False,):
+    def __init__(self, generate_mesh: bool = False):
         super().__init__()
 
         self.dataset_config = ScannetConfig()
@@ -80,7 +80,7 @@ class ONet(nn.Module):
             q_z = self.infer_z(input_points_for_completion, input_points_occ_for_completion, input_features_for_completion, **kwargs)
             z = q_z.rsample()
             # KL-divergence
-            p0_z = self.get_prior_z(self.z_dim)
+            p0_z = self.get_prior_z(self.z_dim, z.device)
             kl = dist.kl_divergence(q_z, p0_z).sum(dim=-1)
             loss = kl.mean()
         else:
@@ -119,13 +119,12 @@ class ONet(nn.Module):
         :param kwargs:
         :return:
         '''
-        device = input_features_for_completion.device
         if self.use_cls_for_completion:
-            cls_codes_for_completion = cls_codes_for_completion.to(device).float()
+            cls_codes_for_completion = cls_codes_for_completion.to(self.device).float()
             input_features_for_completion = torch.cat([input_features_for_completion, cls_codes_for_completion], dim=-1)
         '''Encode the inputs.'''
         batch_size = input_points_for_completion.size(0)
-        z = self.get_z_from_prior((batch_size,), device, sample=sample)
+        z = self.get_z_from_prior((batch_size,), sample=sample)
         p_r = self.decode(input_points_for_completion, z, input_features_for_completion, **kwargs)
         return p_r
 
@@ -169,8 +168,8 @@ class ONet(nn.Module):
             mean_z, logstd_z = self.encoder_latent(p, occ, c, **kwargs)
         else:
             batch_size = p.size(0)
-            mean_z = torch.empty(batch_size, 0)
-            logstd_z = torch.empty(batch_size, 0)
+            mean_z = torch.empty(batch_size, 0).to(self.device)
+            logstd_z = torch.empty(batch_size, 0).to(self.device)
 
         q_z = dist.Normal(mean_z, torch.exp(logstd_z))
         return q_z
@@ -180,11 +179,10 @@ class ONet(nn.Module):
 
         Args:
             zdim: dimension of latent code z.
-            device (device): pytorch device
         '''
         p0_z = dist.Normal(
-            torch.zeros(z_dim, device=device),
-            torch.ones(z_dim, device=device)
+            torch.zeros(z_dim).to(device),
+            torch.ones(z_dim).to(device)
         )
 
         return p0_z

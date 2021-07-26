@@ -13,35 +13,34 @@ from net_utils.libs import random_sampling_by_instance, rotz, flip_axis_to_camer
 from net_utils.transforms import SubsamplePoints
 
 from data.scannet_config import ScannetConfig
+from config.common import BasicConfig
 
 from external import binvox_rw
 
 class DRSet(Dataset):
 
-    def __init__(self, mode: str = None, phase: str = None, 
-                 datasets_root_path = 'datasets'):
+    def __init__(self, mode: str = None, config: BasicConfig = None):
         r"""
         :param mode: 'train', 'val' or 'test'
-        :param phase: 'detection' or 'completion'
         """
         super().__init__()
 
+        self.cfg = config
         self.num_points = 80000
         self.use_color = False
         self.use_height = True
         self.augment = mode == 'train'
 
         self.mode = mode
-        self.phase = phase
 
-        self.datasets_root_path = datasets_root_path
-        content_file = os.path.join(datasets_root_path, 'splits/fullscan', f'scannetv2_{mode}.json')
+        content_file = os.path.join(self.cfg.dataset, 'splits/fullscan', f'scannetv2_{mode}.json')
         # [{"scan": "...full_scan.npz", "bbox": "...bbox.pkl"}, ]
         self.content_list = read_json_file(content_file)
-        self.shapenet_path = os.path.join(datasets_root_path, 'ShapeNetv2_data')
+        self.shapenet_path = os.path.join(self.cfg.dataset, 'ShapeNetv2_data')
 
         self.n_points_object = [1024, 1024]
         self.points_transform = SubsamplePoints([1024, 1024], mode)
+        self.points_unpackbits = True
         
         self.MAX_NUM_OBJ = 64
         self.MEAN_COLOR_RGB = np.array([121.87661, 109.73591, 95.61673])
@@ -170,7 +169,7 @@ class DRSet(Dataset):
         ret_dict['num_gt_boxes'] = np.zeros(256) + boxes.shape[0]
 
         '''For Object Completion'''
-        if self.phase == 'completion':
+        if self.cfg.phase == 'completion':
             object_points = np.zeros((self.MAX_NUM_OBJ, np.sum(self.n_points_object), 3))
             object_points_occ = np.zeros((self.MAX_NUM_OBJ, np.sum(self.n_points_object)))
             points_data = self.get_shapenet_points(shapenet_catids, shapenet_ids, transform=self.points_transform)
@@ -238,10 +237,9 @@ class DRSet(Dataset):
 
         return recursive_cat_to_numpy(shape_data_list)
         
-def get_dataloader(mode: str = None, phase: str = None):
+def get_dataloader(mode: str = None, config: BasicConfig = None):
     r"""
     :param mode: 'train', 'val' or 'test'
-    :param phase: 'detection' or 'completion'
     """
     default_collate = torch.utils.data.dataloader.default_collate
     def collate_fn(batch):
@@ -268,16 +266,16 @@ def get_dataloader(mode: str = None, phase: str = None):
         np.random.seed(worker_seed)
         random.seed(worker_seed)
 
-    dataset = DRSet(mode, phase)
+    dataset = DRSet(mode, config)
     # sampler = DistributedSampler(dataset)
     dataloader = DataLoader(
         dataset=dataset,
         # sampler=sampler,
-        num_workers=16,
-        batch_size=8,
+        num_workers=config.num_workers,
+        batch_size=config.batch_size,
         # shuffle=(mode == 'train'),
         collate_fn=collate_fn,
-        worker_init_fn=seed_worker,
+        #worker_init_fn=seed_worker,
         generator=g,
     )
     return dataloader

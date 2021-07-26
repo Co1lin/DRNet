@@ -1,0 +1,38 @@
+config:
+  phase: completion
+  gpus:
+  - 1
+  - 2
+  num_workers: 16
+  seed: 100
+  weight: ''
+  weight_mode: ''
+  dataset: datasets
+  batch_size: 4
+  lr: 0.001
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  patience: 20
+  scheduler_factor: 0.1
+  scheduler_threshold: 0.01
+  num_point: 80000
+  num_target: 256
+  ap_iou_thresholds:
+  - 0.5
+  cluster_sampling: vote_fps
+  remove_empty_box: false
+  use_3d_nms: true
+  nms_iou: 0.25
+  use_old_type_nms: false
+  cls_nms: true
+  per_class_proposal: true
+  conf_thresh: 0.05
+  use_cls_for_completion: false
+  dump_threshold: 0.5
+  export_shape: false
+  evaluate_mesh_mAP: false
+  generate_mesh: false
+  mode: train
+  epochs: 480
