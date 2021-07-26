@@ -4,7 +4,6 @@ import torch
 import pytorch_lightning as pl
 from torch import optim
 
-from config.common import BasicConfig
 from utils.tools import read_json_file
 from utils import pc_util
 from models.pointnet2backbone import Pointnet2Backbone
@@ -23,14 +22,14 @@ from models.loss import DetectionLoss, ONet_Loss, compute_objectness_loss
 
 class DRNet(pl.LightningModule):
 
-    def __init__(self, config: BasicConfig = None):
+    def __init__(self, config = None):
         r"""
         :param export_shape: if output shape voxels for visualization
         """
         super().__init__()
         
         # configs
-        self.cfg: BasicConfig = config
+        self.cfg = config.task
         self.dataset_config = ScannetConfig()
         
         # networks
@@ -38,7 +37,7 @@ class DRNet(pl.LightningModule):
         self.voting = VotingModule()
         self.proposal = ProposalModule()
         self.skip_propagation = SkipPropagation()
-        self.completion = ONet(self.cfg.generate_mesh)
+        self.completion = ONet(self.cfg.generation.generate_mesh)
 
         # losses
         self.detection_loss = DetectionLoss()
@@ -57,7 +56,7 @@ class DRNet(pl.LightningModule):
         # for test
         self.AP_IOU_THRESHOLDS = [0.5]
         self.ap_calculator_list = [
-            APCalculator(iou_thresh, self.dataset_config.class2type, self.cfg.evaluate_mesh_mAP) 
+            APCalculator(iou_thresh, self.dataset_config.class2type, self.cfg.generation.evaluate_mesh_mAP) 
             for iou_thresh in self.AP_IOU_THRESHOLDS
         ]
 
@@ -90,7 +89,7 @@ class DRNet(pl.LightningModule):
         parsed_gts = parse_groundtruths(batch, self.eval_config)
 
         # completion
-        evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generate_mesh and self.cfg.evaluate_mesh_mAP else False
+        evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh and self.cfg.generation.evaluate_mesh_mAP else False
 
         if self.cfg.phase == 'completion':
             # use 3D NMS to generate sample ids.
@@ -145,7 +144,7 @@ class DRNet(pl.LightningModule):
             else:
                 iou_stats = None
             
-            if self.cfg.generate_mesh:
+            if self.cfg.generation.generate_mesh:
                 meshes = self.completion.generator.generate_mesh(object_input_features, cls_codes_for_completion)
             else:
                 meshes = None
@@ -162,7 +161,7 @@ class DRNet(pl.LightningModule):
 
         '''fit mesh points to scans'''
         pred_mesh_dict = None
-        if self.cfg.phase == 'completion' and self.cfg.generate_mesh:
+        if self.cfg.generation.phase == 'completion' and self.cfg.generation.generate_mesh:
             pred_mesh_dict = {'meshes': meshes, 'proposal_ids': BATCH_PROPOSAL_IDs}
             parsed_predictions = self._fit_mesh_to_scan(pred_mesh_dict, parsed_predictions, eval_dict, inputs['point_clouds'], dump_threshold)
         pred_mesh_dict = pred_mesh_dict if evaluate_mesh_mAP else None
@@ -224,7 +223,7 @@ class DRNet(pl.LightningModule):
         parsed_gts = parse_groundtruths(batch, self.eval_config)
 
         # completion
-        evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generate_mesh and self.cfg.evaluate_mesh_mAP else False
+        evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh and self.cfg.generation.evaluate_mesh_mAP else False
 
         if self.cfg.phase == 'completion':
             # use 3D NMS to generate sample ids.
@@ -258,7 +257,7 @@ class DRNet(pl.LightningModule):
             input_points_occ_for_completion, \
             cls_codes_for_completion = self._select_data(batch, BATCH_PROPOSAL_IDs)
             
-            export_shape = batch.get('export_shape', self.cfg.export_shape) # if output shape voxels.
+            export_shape = batch.get('export_shape', self.cfg.generation.export_shape) # if output shape voxels.
             batch_size, feat_dim, N_proposals = object_input_features.size()
             object_input_features = object_input_features.transpose(1, 2) \
                                     .contiguous().view(batch_size * N_proposals, feat_dim)
@@ -315,7 +314,7 @@ class DRNet(pl.LightningModule):
         for ap_calculator in self.ap_calculator_list:
             ap_calculator.step(eval_dict['batch_pred_map_cls'], eval_dict['batch_gt_map_cls'])
         # visualize intermediate results.
-        if self.cfg.dump_results:
+        if self.cfg.generation.dump_results:
             self._visualize_step(batch_idx, batch, out, eval_dict)
         
     def test_epoch_end(self, outputs):
@@ -327,17 +326,18 @@ class DRNet(pl.LightningModule):
                 print(f'eval {key}: {metrics_dict[key]}')
     
     def configure_optimizers(self):
+        cfg = self.cfg.optimizer
         optimizer = optim.AdamW(
-            self.parameters(), lr=self.cfg.lr,
-            betas=self.cfg.betas,
-            eps=self.cfg.eps,
+            self.parameters(), lr=cfg.lr[0],
+            betas=cfg.betas,
+            eps=cfg.eps,
             weight_decay=0,
         )
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer,
-            patience=self.cfg.patience,
-            factor=self.cfg.scheduler_factor,
-            threshold=self.cfg.scheduler_threshold,
+            patience=cfg.patience,
+            factor=cfg.factor,
+            threshold=cfg.threshold,
         )
         return {
             'optimizer': optimizer,
@@ -529,7 +529,7 @@ class DRNet(pl.LightningModule):
         '''
         split_file = os.path.join('datasets/splits/fullscan', 'scannetv2_' + self.cfg.phase + '.json')
         scene_name = read_json_file(split_file)[gt_data['scan_idx']]['scan'].split('/')[3]
-        dump_dir = os.path.join(self.cfg.dump_path, '%s_%s_%s'%(self.cfg.phase, batch_idx, scene_name))
+        dump_dir = os.path.join(self.cfg.generation.dump_path, '%s_%s_%s'%(self.cfg.phase, batch_idx, scene_name))
         if not os.path.exists(dump_dir):
             os.makedirs(dump_dir)
 

@@ -1,10 +1,9 @@
 import pytorch_lightning as pl
 from data.drset import DRSet, get_dataloader
-from config.common import BasicConfig
 
 class DRDataModule(pl.LightningDataModule):
 
-    def __init__(self, config: BasicConfig = None):
+    def __init__(self, config = None):
         r"""
         :param phase: 'detection' or 'completion'
         """
@@ -19,10 +18,10 @@ class DRDataModule(pl.LightningDataModule):
     #     :param stage: 'fit' or 'test' 
     #     """
     #     if stage == 'fit':
-    #         self.dataset_train = DRSet('train', self.cfg.phase)
-    #         self.dataset_val = DRSet('val', self.cfg.phase)
+    #         self.dataset_train = DRSet('train', self.cfg.task.phase)
+    #         self.dataset_val = DRSet('val', self.cfg.task.phase)
     #     elif stage == 'test':
-    #         self.dataset_test = DRSet('test', self.cfg.phase)
+    #         self.dataset_test = DRSet('test', self.cfg.task.phase)
 
     def train_dataloader(self):
         return get_dataloader('train', self.cfg)

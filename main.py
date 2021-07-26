@@ -9,7 +9,6 @@ from pytorch_lightning.loggers import WandbLogger
 import torch
 from data.dr_datamodule import DRDataModule
 from models.drnet import DRNet
-from config.common import *
 
 def init_wandb():
     os.environ['WANDB_API_KEY'] = 'a5044d4b533063065587a9fce532ad394071fc48'
@@ -19,13 +18,12 @@ def init_wandb():
     )
     return wandb_logger
 
-def train(model, datamodule, cfg: BasicConfig):
+def train(model, datamodule, cfg):
     wandb_logger = init_wandb()
-    trainer = pl.Trainer(gpus=cfg.gpus, logger=wandb_logger, accelerator='ddp')
-    #trainer = pl.Trainer(gpus=[1], logger=wandb_logger)
+    trainer = pl.Trainer(gpus=cfg.gpus, logger=wandb_logger, accelerator='ddp', log_every_n_steps=20)
     trainer.fit(model, datamodule)
 
-def test(model, datamodule, cfg: BasicConfig):
+def test(model, datamodule, cfg):
     trainer = pl.Trainer(gpus=cfg.gpus)
     trainer.test(model, datamodule=datamodule)
 
@@ -35,16 +33,15 @@ def seed_all(seed: int):
     np.random.seed(seed)
     random.seed(seed)
 
-@hydra.main(config_path=None, config_name='config')
-def main(config: Config):
+@hydra.main(config_path='config', config_name='config')
+def main(cfg):
     os.chdir(hydra.utils.get_original_cwd())
-    cfg: BasicConfig = config.config
     seed_all(cfg.seed)
     
     drdm = DRDataModule(cfg)
     drnet = DRNet(cfg)
 
-    mode = cfg.mode
+    mode = cfg.task.mode
     if mode == 'train':
         train(drnet, drdm, cfg)
     elif mode == 'test':

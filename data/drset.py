@@ -13,30 +13,27 @@ from net_utils.libs import random_sampling_by_instance, rotz, flip_axis_to_camer
 from net_utils.transforms import SubsamplePoints
 
 from data.scannet_config import ScannetConfig
-from config.common import BasicConfig
 
 from external import binvox_rw
 
 class DRSet(Dataset):
 
-    def __init__(self, mode: str = None, config: BasicConfig = None):
+    def __init__(self, mode: str = None, config = None):
         r"""
         :param mode: 'train', 'val' or 'test'
         """
         super().__init__()
 
-        self.cfg = config
-        self.num_points = 80000
+        self.cfg = config.task
         self.use_color = False
         self.use_height = True
         self.augment = mode == 'train'
-
         self.mode = mode
 
-        content_file = os.path.join(self.cfg.dataset, 'splits/fullscan', f'scannetv2_{mode}.json')
+        content_file = os.path.join(self.cfg.data.dataset, 'splits/fullscan', f'scannetv2_{mode}.json')
         # [{"scan": "...full_scan.npz", "bbox": "...bbox.pkl"}, ]
         self.content_list = read_json_file(content_file)
-        self.shapenet_path = os.path.join(self.cfg.dataset, 'ShapeNetv2_data')
+        self.shapenet_path = os.path.join(self.cfg.data.dataset, 'ShapeNetv2_data')
 
         self.n_points_object = [1024, 1024]
         self.points_transform = SubsamplePoints([1024, 1024], mode)
@@ -146,7 +143,7 @@ class DRSet(Dataset):
         angle_classes[0:boxes.shape[0]] = obj_angle_class
         angle_residuals[0:boxes.shape[0]] = obj_angle_residuals
 
-        point_cloud, choices = pc_util.random_sampling(point_cloud, self.num_points, return_choices=True)
+        point_cloud, choices = pc_util.random_sampling(point_cloud, self.cfg.data.num_point, return_choices=True)
         point_votes_mask = point_votes[choices,0]
         point_votes = point_votes[choices,1:]
         point_instance_labels = point_instance_labels[choices]
@@ -237,7 +234,7 @@ class DRSet(Dataset):
 
         return recursive_cat_to_numpy(shape_data_list)
         
-def get_dataloader(mode: str = None, config: BasicConfig = None):
+def get_dataloader(mode: str = None, config = None):
     r"""
     :param mode: 'train', 'val' or 'test'
     """
@@ -272,7 +269,7 @@ def get_dataloader(mode: str = None, config: BasicConfig = None):
         dataset=dataset,
         # sampler=sampler,
         num_workers=config.num_workers,
-        batch_size=config.batch_size,
+        batch_size=config.task.batch_size,
         # shuffle=(mode == 'train'),
         collate_fn=collate_fn,
         #worker_init_fn=seed_worker,
