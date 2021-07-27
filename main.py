@@ -42,6 +42,7 @@ def train(cfg):
         ]
         wandb_logger = init_wandb()
         trainer = pl.Trainer(
+            max_epochs=cfg.task.epochs,
             gpus=cfg.gpus, 
             logger=wandb_logger, 
             accelerator='ddp', 
