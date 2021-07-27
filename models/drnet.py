@@ -23,9 +23,9 @@ class DRNet(pl.LightningModule):
 
     def __init__(self, config = None):
         super().__init__()
-        
+        self.save_hyperparameters()
         # configs
-        self.cfg = config.task
+        self.cfg = self.hparams.config.task
         self.dataset_config = ScannetConfig()
         
         # networks
@@ -50,10 +50,11 @@ class DRNet(pl.LightningModule):
             'conf_thresh': 0.05,
         }
         
-        # freeze
-        for m in self.cfg.freeze:
-            module = getattr(self, m)
-            module.freeze()
+        if hasattr(self.cfg, 'freeze'):
+            # freeze
+            for m in self.cfg.freeze:
+                module = getattr(self, m)
+                module.freeze()
 
         # for test
         self.AP_IOU_THRESHOLDS = [0.5]
@@ -164,7 +165,7 @@ class DRNet(pl.LightningModule):
 
         '''fit mesh points to scans'''
         pred_mesh_dict = None
-        if self.cfg.generation.phase == 'completion' and self.cfg.generation.generate_mesh:
+        if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh:
             pred_mesh_dict = {'meshes': meshes, 'proposal_ids': BATCH_PROPOSAL_IDs}
             parsed_predictions = self._fit_mesh_to_scan(pred_mesh_dict, parsed_predictions, eval_dict, inputs['point_clouds'], dump_threshold)
         pred_mesh_dict = pred_mesh_dict if evaluate_mesh_mAP else None

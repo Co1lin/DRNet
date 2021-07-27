@@ -5,4 +5,4 @@ gpus: [0,1,2]
 num_workers: 24
 seed: 100
 
-weight: ''
+weight: 'outputs/2021-07-26/22-57-05/train_det-epoch=816-val_loss=14.28-best.ckpt'

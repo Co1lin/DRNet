@@ -5,7 +5,7 @@ phase: detection
 resume: false
 finetune: false
 
-batch_size: 15
+batch_size: 12
 epochs: 480
 
 freeze: []

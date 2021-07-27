@@ -88,11 +88,11 @@ def main(cfg):
             if not cfg.task.finetune or not os.path.exists(cfg.weight):
                 model = DRNet(cfg)
             else:   # finetuning based on previous weights
-                model = DRNet.load_from_checkpoint(cfg.weight, cfg)
+                model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
         else:   # resume
-            model = DRNet() # DRNet.load_from_checkpoint(cfg.weight)
+            model = DRNet(cfg) # DRNet.load_from_checkpoint(cfg.weight)
     else:
-        model = DRNet.load_from_checkpoint(cfg.weight)
+        model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
     
     datamodule = DRDataModule(cfg)
 
