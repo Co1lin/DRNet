@@ -8,7 +8,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 import torch
-from torch._C import Value
 from data.dr_datamodule import DRDataModule
 from models.drnet import DRNet
 
@@ -64,7 +63,7 @@ def train(cfg):
 
 def test(cfg):
     trainer = pl.Trainer(
-        gpus=cfg.gpus[0],
+        gpus=[cfg.gpus[0]],
     )
     trainer.test(model, datamodule=datamodule)
 
