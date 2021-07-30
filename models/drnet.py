@@ -336,26 +336,45 @@ class DRNet(pl.LightningModule):
     
 
     def configure_optimizers(self):
-        cfg = self.cfg.optimizer
-        optimizer = optim.AdamW(
-            self.parameters(), lr=cfg.lr[0],
-            betas=cfg.betas,
-            eps=cfg.eps,
-            weight_decay=0,
+        optimizers = schedulers = {}
+        optim_cfg = self.cfg.optimizer
+
+        optimizers['detection'] = optim.AdamW(
+            list(self.backbone.parameters()) + 
+            list(self.voting.parameters()) + 
+            list(self.proposal.parameters()),
+            lr=optim_cfg.detection.lr,
+            betas=optim_cfg.detection.betas,
+            eps=optim_cfg.detection.eps,
+            weight_decay=optim_cfg.detection.weight_decay,
         )
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizer,
-            patience=cfg.patience,
-            factor=cfg.factor,
-            threshold=cfg.threshold,
+        if self.cfg.phase == 'completion':
+            optimizers['completion'] = optim.AdamW(
+                list(self.skip_propagation.parameters()) + 
+                list(self.completion.parameters()),
+                lr=optim_cfg.completion.lr,
+                betas=optim_cfg.completion.betas,
+                eps=optim_cfg.completion.eps,
+                weight_decay=optim_cfg.completion.weight_decay,
+            )
+        
+        schedulers['detection'] = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizers['detection'],
+            patience=optim_cfg.detection.patience,
+            factor=optim_cfg.detection.factor,
+            threshold=optim_cfg.detection.threshold,
         )
-        return {
-            'optimizer': optimizer,
-            'lr_scheduler': {
-                'scheduler': scheduler,
-                'monitor': 'val_loss',
-            }
-        }
+        if self.cfg.phase == 'completion':
+            # comp_scheduler
+            schedulers['completion'] = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer=optimizers['completion'],
+                patience=optim_cfg.detection.patience,
+                factor=optim_cfg.detection.factor,
+                threshold=optim_cfg.detection.threshold,
+            )
+        
+        return [v for _, v in optimizers.items()], \
+               [ {'scheduler': v, 'monitor': 'val_loss'} for _, v in schedulers.items() ]
 
 
     def _compute_loss(self, est_data, gt_data):

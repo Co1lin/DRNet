@@ -11,13 +11,22 @@ epochs: 480
 freeze: []
 
 optimizer:
-  lr: [1e-4, 5e-5]
-  betas: [0.9, 0.999]
-  eps: 1e-8
-  
-  patience: 100
-  factor: 0.1
-  threshold: 0.01
+  detection:
+    lr: 5e-5
+    betas: [0.9, 0.999]
+    eps: 1e-8
+    patience: 40
+    factor: 0.1
+    threshold: 0.01
+    weight_decay: 0
+  completion:
+    lr: 5e-5
+    betas: [0.9, 0.999]
+    eps: 1e-8
+    patience: 40
+    factor: 0.1
+    threshold: 0.01
+    weight_decay: 0
 
 data:
   dataset: 'datasets'
