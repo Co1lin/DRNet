@@ -97,7 +97,8 @@ def main(cfg):
             if not cfg.task.finetune or not os.path.exists(cfg.weight):
                 model = DRNet(cfg)  # train from scratch
             else:   # finetuning based on previous weights
-                model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
+                # set strict to False to ignore the missing params in the previous phase
+                model = DRNet.load_from_checkpoint(cfg.weight, config=cfg, strict=False)
     elif cfg.task.mode == 'test':
         model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
     else:

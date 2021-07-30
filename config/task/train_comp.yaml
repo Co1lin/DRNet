@@ -5,7 +5,7 @@ phase: completion
 resume: false
 finetune: true
 
-batch_size: 4
+batch_size: 8
 epochs: 480
 
 freeze: ['backbone', 'voting', 'proposal']
