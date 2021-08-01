@@ -666,7 +666,7 @@ class DRNet(pl.LightningModule):
             return
 
         objectness_loss, objectness_label, objectness_mask, object_assignment = \
-            compute_objectness_loss(est_data, gt_data)
+            compute_objectness_loss(est_data, gt_data, self.device)
 
         # LABELS
         gt_center = gt_data['center_label'].detach().cpu().numpy()  # (B,MAX_NUM_OBJ,3)
