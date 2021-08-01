@@ -572,7 +572,7 @@ class DRNet(pl.LightningModule):
     def _visualize_step(self, batch_idx, gt_data, our_data, eval_dict, inference_switch=False):
         ''' Performs a visualization step.
         '''
-        split_file = os.path.join('datasets/splits/fullscan', 'scannetv2_' + self.cfg.phase + '.json')
+        split_file = os.path.join('datasets/splits/fullscan', 'scannetv2_' + self.cfg.mode + '.json')
         scene_name = read_json_file(split_file)[gt_data['scan_idx']]['scan'].split('/')[3]
         dump_dir = os.path.join(self.cfg.generation.dump_path, '%s_%s_%s'%(self.cfg.phase, batch_idx, scene_name))
         if not os.path.exists(dump_dir):
