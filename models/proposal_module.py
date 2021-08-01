@@ -38,7 +38,7 @@ def decode_scores(net, end_points, num_heading_bin, num_size_cluster):
 
 
 class ProposalModule(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, cfg):
         '''
         Skeleton Extraction Net to obtain partial skeleton from a partial scan (refer to PointNet++).
         '''
@@ -51,7 +51,7 @@ class ProposalModule(pl.LightningModule):
         self.num_size_cluster = self.dataset_config.num_size_cluster
         self.mean_size_arr = self.dataset_config.mean_size_arr
         self.num_proposal = 256
-        self.sampling = 'vote_fps'
+        self.sampling = cfg.data.cluster_sampling
         self.seed_feat_dim = 256
 
         '''Modules'''

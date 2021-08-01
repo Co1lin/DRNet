@@ -2,7 +2,7 @@ name: test_comp
 mode: test
 phase: completion
 
-batch_size: 4
+batch_size: 1
 
 data:
   dataset: 'datasets'

@@ -17,7 +17,7 @@ from net_utils.ap_helper import parse_predictions, parse_groundtruths, assembly_
 from net_utils.libs import flip_axis_to_depth, extract_pc_in_box3d, flip_axis_to_camera
 from net_utils.box_util import get_3d_box
 from data.scannet_config import ScannetConfig
-from models.loss import DetectionLoss, ONet_Loss, compute_objectness_loss
+from models.loss import DetectionLoss, ONet_Loss, compute_objectness_loss, chamfer_func
 
 class DRNet(pl.LightningModule):
 
@@ -31,10 +31,10 @@ class DRNet(pl.LightningModule):
         # networks
         self.backbone = Pointnet2Backbone()
         self.voting = VotingModule()
-        self.proposal = ProposalModule()
+        self.proposal = ProposalModule(self.cfg)
         if self.cfg.phase == 'completion':
             self.skip_propagation = SkipPropagation()
-            self.completion = ONet(self.cfg.generation.generate_mesh)
+            self.completion = ONet(self.cfg)
 
         # losses
         self.detection_loss = DetectionLoss()
@@ -339,16 +339,17 @@ class DRNet(pl.LightningModule):
         optimizers = schedulers = {}
         optim_cfg = self.cfg.optimizer
 
-        optimizers['detection'] = optim.AdamW(
-            list(self.backbone.parameters()) + 
-            list(self.voting.parameters()) + 
-            list(self.proposal.parameters()),
-            lr=optim_cfg.detection.lr,
-            betas=optim_cfg.detection.betas,
-            eps=optim_cfg.detection.eps,
-            weight_decay=optim_cfg.detection.weight_decay,
-        )
-        if self.cfg.phase == 'completion':
+        if self.cfg.phase == 'detection' or not hasattr(self.cfg, 'freeze'):
+            optimizers['detection'] = optim.AdamW(
+                list(self.backbone.parameters()) + 
+                list(self.voting.parameters()) + 
+                list(self.proposal.parameters()),
+                lr=optim_cfg.detection.lr,
+                betas=optim_cfg.detection.betas,
+                eps=optim_cfg.detection.eps,
+                weight_decay=optim_cfg.detection.weight_decay,
+            )
+        elif self.cfg.phase == 'completion':
             optimizers['completion'] = optim.AdamW(
                 list(self.skip_propagation.parameters()) + 
                 list(self.completion.parameters()),
@@ -357,24 +358,24 @@ class DRNet(pl.LightningModule):
                 eps=optim_cfg.completion.eps,
                 weight_decay=optim_cfg.completion.weight_decay,
             )
-        
-        schedulers['detection'] = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizers['detection'],
-            patience=optim_cfg.detection.patience,
-            factor=optim_cfg.detection.factor,
-            threshold=optim_cfg.detection.threshold,
-        )
-        if self.cfg.phase == 'completion':
-            # comp_scheduler
-            schedulers['completion'] = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer=optimizers['completion'],
+        optimizers_list = [v for _, v in optimizers.items()]
+        if self.cfg.phase == 'detection' or not hasattr(self.cfg, 'freeze'):
+            schedulers['detection'] = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer=optimizers['detection'],
                 patience=optim_cfg.detection.patience,
                 factor=optim_cfg.detection.factor,
                 threshold=optim_cfg.detection.threshold,
             )
-        
-        return [v for _, v in optimizers.items()], \
-               [ {'scheduler': v, 'monitor': 'val_loss'} for _, v in schedulers.items() ]
+        elif self.cfg.phase == 'completion':
+            # comp_scheduler
+            schedulers['completion'] = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer=optimizers['completion'],
+                patience=optim_cfg.completion.patience,
+                factor=optim_cfg.completion.factor,
+                threshold=optim_cfg.completion.threshold,
+            )
+        schedulers_list = [ {'scheduler': v, 'monitor': 'val_loss'} for _, v in schedulers.items() ]
+        return optimizers_list, schedulers_list
 
 
     def _compute_loss(self, est_data, gt_data):
@@ -529,22 +530,24 @@ class DRNet(pl.LightningModule):
         orientation_params = torch.from_numpy(orientation_params).to(device).float()
         centroid_params.requires_grad = True
         orientation_params.requires_grad = True
-
-        lr = 0.01
-        iterations = 100
-        optimizer = optim.Adam([centroid_params, orientation_params], lr=lr)
-
-        centroid_params_cpu, orientation_params_cpu, best_loss = None, None, 1e6
-        for iter in range(iterations):
-            optimizer.zero_grad()
-            loss = self.chamfer_dist(obj_points_list, obj_points_mask_list, pc_in_box_list, pc_in_box_mask_list,
-                                     centroid_params, orientation_params)
-            if loss < best_loss:
-                centroid_params_cpu = centroid_params.data.detach().detach().cpu().numpy()
-                orientation_params_cpu = orientation_params.data.detach().detach().cpu().numpy()
-                best_loss = loss
-            loss.backward()
-            optimizer.step()
+        with torch.enable_grad():
+            lr = 0.01
+            iterations = 100
+            optimizer = optim.Adam([centroid_params, orientation_params], lr=lr)
+            centroid_params_cpu, orientation_params_cpu, best_loss = None, None, 1e6
+            for iter in range(iterations):
+                optimizer.zero_grad()
+                loss = self._chamfer_dist(
+                    obj_points_list, obj_points_mask_list, 
+                    pc_in_box_list, pc_in_box_mask_list,
+                    centroid_params, orientation_params
+                )
+                if loss < best_loss:
+                    centroid_params_cpu = centroid_params.data.detach().cpu().numpy()
+                    orientation_params_cpu = orientation_params.data.detach().cpu().numpy()
+                    best_loss = loss
+                loss.backward()
+                optimizer.step()
 
         for idx in range(box_params_list.shape[0]):
             i, j = index_list[idx]
@@ -553,7 +556,18 @@ class DRNet(pl.LightningModule):
 
         parsed_predictions['pred_corners_3d_upright_camera'] = pred_corners_3d_upright_camera
         return parsed_predictions
-
+    
+    def _chamfer_dist(self, obj_points, obj_points_masks, pc_in_box, pc_in_box_masks, centroid_params, orientation_params):
+        b_s = obj_points.size(0)
+        axis_rectified = torch.zeros(size=(b_s, 3, 3)).to(obj_points.device)
+        axis_rectified[:, 2, 2] = 1
+        axis_rectified[:, 0, 0] = torch.cos(orientation_params)
+        axis_rectified[:, 0, 1] = torch.sin(orientation_params)
+        axis_rectified[:, 1, 0] = -torch.sin(orientation_params)
+        axis_rectified[:, 1, 1] = torch.cos(orientation_params)
+        obj_points_after = torch.bmm(obj_points, axis_rectified) + centroid_params.unsqueeze(-2)
+        dist1, dist2 = chamfer_func(obj_points_after, pc_in_box)
+        return torch.mean(dist2 * pc_in_box_masks)*1e3
 
     def _visualize_step(self, batch_idx, gt_data, our_data, eval_dict, inference_switch=False):
         ''' Performs a visualization step.

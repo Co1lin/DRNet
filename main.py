@@ -100,7 +100,10 @@ def main(cfg):
                 # set strict to False to ignore the missing params in the previous phase
                 model = DRNet.load_from_checkpoint(cfg.weight, config=cfg, strict=False)
     elif cfg.task.mode == 'test':
-        model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
+        if os.path.exists(cfg.weight):
+            model = DRNet.load_from_checkpoint(cfg.weight, config=cfg)
+        else:
+            model = DRNet(cfg)  # test from scratch
     else:
         raise ValueError(f'Invalid task mode: {cfg.task.mode}')
     

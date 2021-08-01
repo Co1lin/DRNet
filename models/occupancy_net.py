@@ -21,11 +21,11 @@ class ONet(pl.LightningModule):
         p0_z (dist): prior distribution for latent code z
         device (device): torch device
     '''
-    def __init__(self, generate_mesh: bool = False):
+    def __init__(self, cfg):
         super().__init__()
 
         self.dataset_config = ScannetConfig()
-        self.generate_mesh = generate_mesh
+        self.generate_mesh = cfg.generation.generate_mesh
 
         '''Parameter Configs'''
         decoder_kwargs = {}
@@ -48,7 +48,7 @@ class ONet(pl.LightningModule):
         self.decoder = DecoderCBatchNorm(dim=dim, z_dim=self.z_dim, c_dim=c_dim, **decoder_kwargs)
 
         '''Mount mesh generator'''
-        if generate_mesh:
+        if self.generate_mesh:
             from models.generator import Generator3D
             self.generator = Generator3D(self,
                                          threshold=0.5,
@@ -81,7 +81,7 @@ class ONet(pl.LightningModule):
             q_z = self.infer_z(input_points_for_completion, input_points_occ_for_completion, input_features_for_completion, **kwargs)
             z = q_z.rsample()
             # KL-divergence
-            p0_z = self.get_prior_z(self.z_dim, z.device)
+            p0_z = self.get_prior_z(self.z_dim)
             kl = dist.kl_divergence(q_z, p0_z).sum(dim=-1)
             loss = kl.mean()
         else:
@@ -175,15 +175,15 @@ class ONet(pl.LightningModule):
         q_z = dist.Normal(mean_z, torch.exp(logstd_z))
         return q_z
 
-    def get_prior_z(self, z_dim, device):
+    def get_prior_z(self, z_dim):
         ''' Returns prior distribution for latent code z.
 
         Args:
             zdim: dimension of latent code z.
         '''
         p0_z = dist.Normal(
-            torch.zeros(z_dim).to(device),
-            torch.ones(z_dim).to(device)
+            torch.zeros(z_dim).to(self.device),
+            torch.ones(z_dim).to(self.device)
         )
 
         return p0_z

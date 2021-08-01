@@ -68,7 +68,7 @@ class Generator3D(object):
         
         meshes = []
         for batch_id in range(batch_size):
-            z = self.model.get_z_from_prior((1,), sample=self.sample, device=device)
+            z = self.model.get_z_from_prior((1,), sample=self.sample)
             mesh = self.generate_from_latent(z, object_features[[batch_id]], device, **kwargs)
             meshes.append(mesh)
 
