@@ -1,6 +1,6 @@
 datasets
-datasets/
 **/.DS_Store
+visualized*
 
 lightning_logs/
 wandb/
