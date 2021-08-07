@@ -5,7 +5,7 @@ date: July, 2020
 '''
 import sys
 sys.path.append('.')
-from configs.path_config import PathConfig, ShapeNetIDMap, SHAPENETCLASSES
+from data.path_config import PathConfig, ShapeNetIDMap, SHAPENETCLASSES
 import os
 import pickle
 from utils.scannet.load_scannet_data import export
@@ -17,7 +17,7 @@ from utils.scannet.tools import make_M_from_tqs, calc_Mbbox
 from utils.shapenet import ShapeNetv2_path
 from utils.scannet.tools import normalize
 from utils.scannet.tools import get_iou_cuboid
-from configs.path_config import ScanNet_OBJ_CLASS_IDS as OBJ_CLASS_IDS
+from data.path_config import ScanNet_OBJ_CLASS_IDS as OBJ_CLASS_IDS
 from utils.scannet.tools import get_box_corners
 from utils.pc_util import extract_pc_in_box3d
 

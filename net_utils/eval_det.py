@@ -24,11 +24,13 @@ from net_utils.box_util import box3d_iou
 import numpy as np
 from net_utils.metric_util import calc_iou # axis-aligned 3D box IoU
 
+num_processes = 32
+
 def compute_mesh_iou(voxel1, voxel2):
     voxel1_internal, voxel1_surface = voxel1
     voxel2_internal, voxel2_surface = voxel2
 
-    if voxel1_surface.filled_count ==0 or voxel2_surface.filled_count == 0:
+    if voxel1_surface.filled_count == 0 or voxel2_surface.filled_count == 0:
         return 0.
 
     # (Note: internal voxels would be empty)
@@ -391,7 +393,7 @@ def eval_det_multiprocessing_w_mesh(pred_all, gt_all, ovthresh=0.25, use_07_metr
     ap_mesh = {}
 
     try:
-        p = Pool(processes=8)
+        p = Pool(processes=num_processes)
         ret_values = p.map(eval_det_cls_wrapper_w_mesh,
                            [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func, get_iou_mesh) for classname in
                             gt.keys() if classname in pred])
@@ -455,7 +457,7 @@ def eval_det_multiprocessing_wo_mesh(pred_all, gt_all, ovthresh=0.25, use_07_met
     rec = {}
     prec = {}
     ap = {}
-    p = Pool(processes=10)
+    p = Pool(processes=num_processes)
     ret_values = p.map(eval_det_cls_wrapper_wo_mesh,
                        [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func) for classname in
                         gt.keys() if classname in pred])

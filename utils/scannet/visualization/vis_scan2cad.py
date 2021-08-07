@@ -7,7 +7,7 @@ import sys
 
 sys.path.append('.')
 import os
-from configs.path_config import PathConfig
+from data.path_config import PathConfig
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 import numpy as np
@@ -17,7 +17,7 @@ import random
 from utils.scannet.load_scannet_data import export
 import pickle
 import seaborn as sns
-from configs.path_config import SHAPENETCLASSES, ShapeNetIDMap
+from data.path_config import SHAPENETCLASSES, ShapeNetIDMap
 from utils.shapenet import ShapeNetv2_path
 from utils.read_and_write import read_obj
 

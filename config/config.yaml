@@ -2,7 +2,7 @@ defaults:
   - task: train_comp
 
 gpus: [0,1,2]
-num_workers: 24
+num_workers: 32
 seed: 100
 
 weight: 'outputs/2021-07-30/01-12-14/train_det-epoch=288-val_loss=6.07-best.ckpt'

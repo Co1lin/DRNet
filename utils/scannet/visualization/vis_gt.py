@@ -6,7 +6,7 @@ date: July, 2020
 import sys
 sys.path.append('.')
 import os
-from configs.path_config import PathConfig, ScanNet_OBJ_CLASS_IDS
+from data.path_config import PathConfig, ScanNet_OBJ_CLASS_IDS
 import vtk
 from utils.scannet.visualization.vis_scannet import Vis_Scannet
 import numpy as np

@@ -80,6 +80,11 @@ def seed_all(seed: int):
 
 @hydra.main(config_path='config', config_name='config')
 def main(cfg):
+    # increase ulimit
+    import resource
+    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (16384, rlimit[1]))
+
     global model
     global datamodule
     global ckpt_callback_list

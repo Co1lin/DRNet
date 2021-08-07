@@ -1,4 +1,4 @@
-from configs.path_config import PathConfig
+from data.path_config import PathConfig
 import numpy as np
 import os
 from glob import glob

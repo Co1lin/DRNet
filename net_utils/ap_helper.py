@@ -21,7 +21,7 @@ from utils.shapenet import ShapeNetv2_Watertight_Scaled_Simplified_path
 
 transform_shapenet = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
 
-num_processes = 32
+num_processes = 48
 
 from data.scannet_config import ScannetConfig
 dataset_config_obj = ScannetConfig()

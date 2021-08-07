@@ -7,7 +7,7 @@ import sys
 
 sys.path.append('.')
 import os
-from configs.path_config import PathConfig
+from data.path_config import PathConfig
 from utils.scannet.load_scannet_data import export
 import seaborn as sns
 import pickle
@@ -15,7 +15,7 @@ import vtk
 from vtk.util.numpy_support import numpy_to_vtk
 import numpy as np
 import math
-from configs.path_config import SHAPENETCLASSES
+from data.path_config import SHAPENETCLASSES
 
 path_config = PathConfig('scannet')
 

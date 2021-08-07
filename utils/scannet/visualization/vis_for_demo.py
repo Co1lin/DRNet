@@ -4,7 +4,7 @@ from utils import pc_util
 import os
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 import seaborn as sns
-from configs.path_config import PathConfig, ScanNet_OBJ_CLASS_IDS
+from data.path_config import PathConfig, ScanNet_OBJ_CLASS_IDS
 from utils.scannet.visualization.vis_scannet import Vis_Scannet
 import random
 

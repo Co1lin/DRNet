@@ -6,7 +6,7 @@ from utils.read_and_write import read_obj, write_obj
 import math
 import numpy as np
 from external.librender import pyrender
-from configs.path_config import SHAPENETCLASSES, ShapeNetIDMap, ScanNet_OBJ_CLASS_IDS
+from data.path_config import SHAPENETCLASSES, ShapeNetIDMap, ScanNet_OBJ_CLASS_IDS
 from scipy import ndimage
 from external import pyfusion
 import mcubes
