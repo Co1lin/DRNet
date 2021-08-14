@@ -243,7 +243,7 @@ class Vis_base(Vis_Scannet):
 
 def main(vis_root, save_path, scene_name):
     # scene_name = 'test_284_scene0081_02'
-    if 'test' in scene_name:
+    if 'test' in scene_name or 'completion' in scene_name:
         sample_name = scene_name
         scene_name = '_'.join(sample_name.split('_')[2:])
     else:
@@ -284,7 +284,7 @@ def main(vis_root, save_path, scene_name):
         # get points from object
         polydata = ply_reader.GetOutput()
         # read points using vtk_to_numpy
-        obj_points = vtk_to_numpy(polydata.GetPoints().GetData()).astype(np.float)
+        obj_points = vtk_to_numpy(polydata.GetPoints().GetData()).astype(np.float64)
 
         '''Fit obj points to bbox'''
         center = bbox_param[:3]
@@ -343,7 +343,7 @@ def main(vis_root, save_path, scene_name):
         # get points from object
         polydata = vtk_object.GetOutput()
         # read points using vtk_to_numpy
-        obj_points = vtk_to_numpy(polydata.GetPoints().GetData()).astype(np.float)
+        obj_points = vtk_to_numpy(polydata.GetPoints().GetData()).astype(np.float64)
 
         '''Fit obj points to bbox'''
         obj_points = obj_points - (obj_points.max(0) + obj_points.min(0))/2.
@@ -385,9 +385,9 @@ if __name__ == '__main__':
     # vis_root = 'out/iscnet/2021-04-08T15:42:39.519971/visualization'
     # scene_name = 'scene0549_00'
     # scene_name = 'test_284_scene0081_02'
-    vis_root = 'out/iscnet/2021-07-19T14:21:53.758908/visualization/'
-    save_path = './visualized/0'
-    scenes = os.listdir(vis_root)
+    vis_root = 'visualized_0802_forward_completed'
+    save_path = './visualized_for_comp/0'
+    scenes = os.listdir(vis_root)[:10]
 
     from multiprocessing import Pool
     from functools import partial

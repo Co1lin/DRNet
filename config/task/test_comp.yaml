@@ -13,7 +13,7 @@ data:
   conf_thresh: 0.05
   nms_iou: 0.25
   cluster_sampling: seed_fps
-  remove_empty_box: false
+  remove_empty_box: true
   use_3d_nms: true
   use_old_type_nms: false
   cls_nms: true

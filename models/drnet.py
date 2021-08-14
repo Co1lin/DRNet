@@ -38,10 +38,10 @@ class DRNet(pl.LightningModule):
 
         # losses
         self.detection_loss = DetectionLoss()
-        self.completion_loss = ONet_Loss()
+        self.completion_loss = ONet_Loss(0.005)
         
         self.eval_config = {
-            'remove_empty_box': False,
+            'remove_empty_box': self.cfg.mode == 'test',
             'use_3d_nms': True,
             'nms_iou': 0.25,
             'use_old_type_nms': False,
@@ -50,8 +50,8 @@ class DRNet(pl.LightningModule):
             'conf_thresh': 0.05,
         }
         
+        # freeze
         if hasattr(self.cfg, 'freeze'):
-            # freeze
             for m in self.cfg.freeze:
                 module = getattr(self, m)
                 module.freeze()
@@ -65,135 +65,135 @@ class DRNet(pl.LightningModule):
 
 
     def forward(self, batch):
-        
-        inputs = {'point_clouds': batch['point_clouds']}
-        end_points = {}
-        
-        # pointnet++ backbone
-        end_points = self.backbone(inputs['point_clouds'], end_points)
-
-        # hough voting
-        xyz = end_points['fp2_xyz']
-        features = end_points['fp2_features']
-        end_points['seed_inds'] = end_points['fp2_inds']
-        end_points['seed_xyz'] = xyz
-        end_points['seed_features'] = features
-
-        xyz, features = self.voting(xyz, features)
-        features_norm = torch.norm(features, p=2, dim=1)
-        features = features.div(features_norm.unsqueeze(1))
-        end_points['vote_xyz'] = xyz
-        end_points['vote_features'] = features
-
-        # detection
-        if_proposal_feature = (self.cfg.phase == 'completion')
-        end_points, proposal_features = self.proposal(xyz, features, end_points, if_proposal_feature)
-
-        eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.eval_config)
-        parsed_gts = parse_groundtruths(batch, self.eval_config)
-
-        # completion
-        evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh and self.cfg.generation.evaluate_mesh_mAP else False
-
-        if self.cfg.phase == 'completion':
-            # use 3D NMS to generate sample ids.
-            batch_sample_ids = eval_dict['pred_mask']
-            # dump_threshold = self.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
-            dump_threshold = 0.05 if evaluate_mesh_mAP else 0.5
-            BATCH_PROPOSAL_IDs = self._get_proposal_id(end_points, batch, mode='random', batch_sample_ids=batch_sample_ids, DUMP_CONF_THRESH=dump_threshold)
-
-            # Skip propagate point clouds to box centers.
+        with torch.no_grad():
+            inputs = {'point_clouds': batch['point_clouds']}
+            end_points = {}
             
-            # gather proposal features
-            gather_ids = BATCH_PROPOSAL_IDs[...,0].unsqueeze(1).repeat(1, 128, 1).long()
-            proposal_features = torch.gather(proposal_features, 2, gather_ids)
+            # pointnet++ backbone
+            end_points = self.backbone(inputs['point_clouds'], end_points)
 
-            # gather proposal centers
-            gather_ids = BATCH_PROPOSAL_IDs[...,0].unsqueeze(-1).repeat(1,1,3).long()
-            pred_centers = torch.gather(end_points['center'], 1, gather_ids)
+            # hough voting
+            xyz = end_points['fp2_xyz']
+            features = end_points['fp2_features']
+            end_points['seed_inds'] = end_points['fp2_inds']
+            end_points['seed_xyz'] = xyz
+            end_points['seed_features'] = features
 
-            # gather proposal orientations
-            pred_heading_class = torch.argmax(end_points['heading_scores'], -1)  # B,num_proposal
-            heading_residuals = end_points['heading_residuals_normalized'] * (np.pi / self.dataset_config.num_heading_bin)  # Bxnum_proposalxnum_heading_bin
-            pred_heading_residual = torch.gather(heading_residuals, 2, pred_heading_class.unsqueeze(-1))  # B,num_proposal,1
-            pred_heading_residual.squeeze_(2)
-            heading_angles = self.dataset_config.class2angle_cuda(pred_heading_class, pred_heading_residual)
-            heading_angles = torch.gather(heading_angles, 1, BATCH_PROPOSAL_IDs[...,0])
-            
-            # gather instance labels
-            proposal_instance_labels = torch.gather(batch['object_instance_labels'], 1, BATCH_PROPOSAL_IDs[...,1])
-            object_input_features, mask_loss = self.skip_propagation(pred_centers, heading_angles, proposal_features, inputs['point_clouds'], batch['point_instance_labels'], proposal_instance_labels)
+            xyz, features = self.voting(xyz, features)
+            features_norm = torch.norm(features, p=2, dim=1)
+            features = features.div(features_norm.unsqueeze(1))
+            end_points['vote_xyz'] = xyz
+            end_points['vote_features'] = features
 
-            # Prepare input-output pairs for shape completion
-            # proposal_to_gt_box_w_cls_list (B x N_Limit x 4): (bool_mask, proposal_id, gt_box_id, cls_id)
-            input_points_for_completion, \
-            input_points_occ_for_completion, \
-            _ = self._select_data(batch, BATCH_PROPOSAL_IDs)
+            # detection
+            if_proposal_feature = (self.cfg.phase == 'completion')
+            end_points, proposal_features = self.proposal(xyz, features, end_points, if_proposal_feature)
 
-            batch_size, feat_dim, N_proposals = object_input_features.size()
-            object_input_features = object_input_features.transpose(1, 2).contiguous().view(batch_size * N_proposals, feat_dim)
+            eval_dict, parsed_predictions = parse_predictions(end_points, batch, self.eval_config)
+            parsed_gts = parse_groundtruths(batch, self.eval_config)
 
-            gather_ids = BATCH_PROPOSAL_IDs[..., 0].unsqueeze(-1).repeat(1, 1, end_points['sem_cls_scores'].size(2))
-            cls_codes_for_completion = torch.gather(end_points['sem_cls_scores'], 1, gather_ids)
-            cls_codes_for_completion = (cls_codes_for_completion >= torch.max(cls_codes_for_completion, dim=2, keepdim=True)[0]).float()
-            cls_codes_for_completion = cls_codes_for_completion.view(batch_size*N_proposals, -1)
+            # completion
+            evaluate_mesh_mAP = True if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh and self.cfg.generation.evaluate_mesh_mAP else False
 
-            completion_loss, shape_example = self.completion.compute_loss(object_input_features, input_points_for_completion, input_points_occ_for_completion, cls_codes_for_completion, False)
+            if self.cfg.phase == 'completion':
+                # use 3D NMS to generate sample ids.
+                batch_sample_ids = eval_dict['pred_mask']
+                # dump_threshold = self.eval_config['conf_thresh'] if evaluate_mesh_mAP else self.cfg.config['generation']['dump_threshold']
+                dump_threshold = 0.05 if evaluate_mesh_mAP else 0.5
+                BATCH_PROPOSAL_IDs = self._get_proposal_id(end_points, batch, mode='random', batch_sample_ids=batch_sample_ids, DUMP_CONF_THRESH=dump_threshold)
 
-            if shape_example is not None:
-                gt_voxels = batch['object_voxels'][0][BATCH_PROPOSAL_IDs[0,..., 1]]
-                ious = compute_iou(shape_example.detach().detach().cpu().numpy(), gt_voxels.detach().detach().cpu().numpy())
-                cls_labels = BATCH_PROPOSAL_IDs[0, ..., 2].detach().detach().cpu().numpy()
-                iou_stats = {'cls': cls_labels, 'iou': ious}                    
+                # Skip propagate point clouds to box centers.
+                
+                # gather proposal features
+                gather_ids = BATCH_PROPOSAL_IDs[...,0].unsqueeze(1).repeat(1, 128, 1).long()
+                proposal_features = torch.gather(proposal_features, 2, gather_ids)
+
+                # gather proposal centers
+                gather_ids = BATCH_PROPOSAL_IDs[...,0].unsqueeze(-1).repeat(1,1,3).long()
+                pred_centers = torch.gather(end_points['center'], 1, gather_ids)
+
+                # gather proposal orientations
+                pred_heading_class = torch.argmax(end_points['heading_scores'], -1)  # B,num_proposal
+                heading_residuals = end_points['heading_residuals_normalized'] * (np.pi / self.dataset_config.num_heading_bin)  # Bxnum_proposalxnum_heading_bin
+                pred_heading_residual = torch.gather(heading_residuals, 2, pred_heading_class.unsqueeze(-1))  # B,num_proposal,1
+                pred_heading_residual.squeeze_(2)
+                heading_angles = self.dataset_config.class2angle_cuda(pred_heading_class, pred_heading_residual)
+                heading_angles = torch.gather(heading_angles, 1, BATCH_PROPOSAL_IDs[...,0])
+                
+                # gather instance labels
+                proposal_instance_labels = torch.gather(batch['object_instance_labels'], 1, BATCH_PROPOSAL_IDs[...,1])
+                object_input_features, mask_loss = self.skip_propagation(pred_centers, heading_angles, proposal_features, inputs['point_clouds'], batch['point_instance_labels'], proposal_instance_labels)
+
+                # Prepare input-output pairs for shape completion
+                # proposal_to_gt_box_w_cls_list (B x N_Limit x 4): (bool_mask, proposal_id, gt_box_id, cls_id)
+                input_points_for_completion, \
+                input_points_occ_for_completion, \
+                _ = self._select_data(batch, BATCH_PROPOSAL_IDs)
+
+                batch_size, feat_dim, N_proposals = object_input_features.size()
+                object_input_features = object_input_features.transpose(1, 2).contiguous().view(batch_size * N_proposals, feat_dim)
+
+                gather_ids = BATCH_PROPOSAL_IDs[..., 0].unsqueeze(-1).repeat(1, 1, end_points['sem_cls_scores'].size(2))
+                cls_codes_for_completion = torch.gather(end_points['sem_cls_scores'], 1, gather_ids)
+                cls_codes_for_completion = (cls_codes_for_completion >= torch.max(cls_codes_for_completion, dim=2, keepdim=True)[0]).float()
+                cls_codes_for_completion = cls_codes_for_completion.view(batch_size*N_proposals, -1)
+
+                completion_loss, shape_example = self.completion.compute_loss(object_input_features, input_points_for_completion, input_points_occ_for_completion, cls_codes_for_completion, False)
+
+                if shape_example is not None:
+                    gt_voxels = batch['object_voxels'][0][BATCH_PROPOSAL_IDs[0,..., 1]]
+                    ious = compute_iou(shape_example.detach().cpu().numpy(), gt_voxels.detach().cpu().numpy())
+                    cls_labels = BATCH_PROPOSAL_IDs[0, ..., 2].detach().cpu().numpy()
+                    iou_stats = {'cls': cls_labels, 'iou': ious}                    
+                else:
+                    iou_stats = None
+                
+                if self.cfg.generation.generate_mesh:
+                    meshes = self.completion.generator.generate_mesh(object_input_features, cls_codes_for_completion)
+                else:
+                    meshes = None
+                
             else:
+                BATCH_PROPOSAL_IDs = None
+                completion_loss = torch.tensor(0.)
+                mask_loss = torch.tensor(0.)
+                shape_example = None
+                meshes = None
                 iou_stats = None
             
-            if self.cfg.generation.generate_mesh:
-                meshes = self.completion.generator.generate_mesh(object_input_features, cls_codes_for_completion)
-            else:
-                meshes = None
+            voxel_size = float(inputs['point_clouds'][0,:,2].max() - inputs['point_clouds'][0,:,2].min()) / 46
+
+            '''fit mesh points to scans'''
+            pred_mesh_dict = None
+            if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh:
+                pred_mesh_dict = {'meshes': meshes, 'proposal_ids': BATCH_PROPOSAL_IDs}
+                parsed_predictions = self._fit_mesh_to_scan(pred_mesh_dict, parsed_predictions, eval_dict, inputs['point_clouds'], dump_threshold)
+            pred_mesh_dict = pred_mesh_dict if evaluate_mesh_mAP else None
+            eval_dict = assembly_pred_map_cls(eval_dict, parsed_predictions, self.eval_config, mesh_outputs=pred_mesh_dict, voxel_size=voxel_size)
+
+            gt_mesh_dict = {'shapenet_catids': batch['shapenet_catids'],
+                            'shapenet_ids': batch['shapenet_ids']} if evaluate_mesh_mAP else None
+            eval_dict['batch_gt_map_cls'] = assembly_gt_map_cls(parsed_gts, mesh_outputs=gt_mesh_dict, voxel_size=voxel_size)
+
+            completion_loss = torch.cat([completion_loss.unsqueeze(0), mask_loss.unsqueeze(0)], dim=0)
+            #return end_points, completion_loss.unsqueeze(0), shape_example, BATCH_PROPOSAL_IDs, eval_dict, meshes, iou_stats, parsed_predictions
             
-        else:
-            BATCH_PROPOSAL_IDs = None
-            completion_loss = torch.tensor(0.)
-            mask_loss = torch.tensor(0.)
-            shape_example = None
-            meshes = None
-            iou_stats = None
-        
-        voxel_size = float(inputs['point_clouds'][0,:,2].max() - inputs['point_clouds'][0,:,2].min()) / 46
+            # compute loss
+            total_loss = self._compute_loss(
+                (end_points, completion_loss.unsqueeze(0)), batch
+            )
+            end_points['losses'] = total_loss
+            end_points['loss'] = total_loss['total']
 
-        '''fit mesh points to scans'''
-        pred_mesh_dict = None
-        if self.cfg.phase == 'completion' and self.cfg.generation.generate_mesh:
-            pred_mesh_dict = {'meshes': meshes, 'proposal_ids': BATCH_PROPOSAL_IDs}
-            parsed_predictions = self._fit_mesh_to_scan(pred_mesh_dict, parsed_predictions, eval_dict, inputs['point_clouds'], dump_threshold)
-        pred_mesh_dict = pred_mesh_dict if evaluate_mesh_mAP else None
-        eval_dict = assembly_pred_map_cls(eval_dict, parsed_predictions, self.eval_config, mesh_outputs=pred_mesh_dict, voxel_size=voxel_size)
-
-        gt_mesh_dict = {'shapenet_catids': batch['shapenet_catids'],
-                        'shapenet_ids': batch['shapenet_ids']} if evaluate_mesh_mAP else None
-        eval_dict['batch_gt_map_cls'] = assembly_gt_map_cls(parsed_gts, mesh_outputs=gt_mesh_dict, voxel_size=voxel_size)
-
-        completion_loss = torch.cat([completion_loss.unsqueeze(0), mask_loss.unsqueeze(0)], dim=0)
-        #return end_points, completion_loss.unsqueeze(0), shape_example, BATCH_PROPOSAL_IDs, eval_dict, meshes, iou_stats, parsed_predictions
-        
-        # compute loss
-        total_loss = self._compute_loss(
-            (end_points, completion_loss.unsqueeze(0)), batch
-        )
-        end_points['losses'] = total_loss
-        end_points['loss'] = total_loss['total']
-
-        end_points['shape_example'] = shape_example
-        end_points['BATCH_PROPOSAL_IDs'] = BATCH_PROPOSAL_IDs
-        end_points['eval_dict'] = eval_dict
-        end_points['parsed_predictions'] = parsed_predictions
-        if meshes is not None:
-            end_points['meshes'] = meshes
-        if iou_stats is not None:
-            end_points['iou_stats'] = iou_stats
-        return end_points
+            end_points['shape_example'] = shape_example
+            end_points['BATCH_PROPOSAL_IDs'] = BATCH_PROPOSAL_IDs
+            end_points['eval_dict'] = eval_dict
+            end_points['parsed_predictions'] = parsed_predictions
+            if meshes is not None:
+                end_points['meshes'] = meshes
+            if iou_stats is not None:
+                end_points['iou_stats'] = iou_stats
+            return end_points
 
 
     def _common_step(self, batch, batch_idx):
@@ -349,7 +349,7 @@ class DRNet(pl.LightningModule):
                 eps=optim_cfg.detection.eps,
                 weight_decay=optim_cfg.detection.weight_decay,
             )
-        elif self.cfg.phase == 'completion':
+        if self.cfg.phase == 'completion':
             optimizers['completion'] = optim.AdamW(
                 list(self.skip_propagation.parameters()) + 
                 list(self.completion.parameters()),
@@ -359,6 +359,7 @@ class DRNet(pl.LightningModule):
                 weight_decay=optim_cfg.completion.weight_decay,
             )
         optimizers_list = [v for _, v in optimizers.items()]
+
         if self.cfg.phase == 'detection' or not hasattr(self.cfg, 'freeze'):
             schedulers['detection'] = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer=optimizers['detection'],
@@ -366,8 +367,7 @@ class DRNet(pl.LightningModule):
                 factor=optim_cfg.detection.factor,
                 threshold=optim_cfg.detection.threshold,
             )
-        elif self.cfg.phase == 'completion':
-            # comp_scheduler
+        if self.cfg.phase == 'completion':
             schedulers['completion'] = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer=optimizers['completion'],
                 patience=optim_cfg.completion.patience,
