@@ -305,6 +305,11 @@ class DRNet(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         out = self(batch)
         loss = out['losses']
+        self.log("test_loss", float(out['loss']), prog_bar=True, on_step=True)
+        print(float(out['loss']))
+        if 'completion_loss' in loss:
+            self.log("test_comp_loss", float(loss['completion_loss']), prog_bar=True, on_step=True)
+            print(float(loss['completion_loss']))
         
         eval_metrics = {}
         if 'iou_stats' in out:
@@ -748,5 +753,4 @@ class DRNet(pl.LightningModule):
 
         return input_points_for_completion, \
                input_points_occ_for_completion, cls_codes_for_completion
-
 
