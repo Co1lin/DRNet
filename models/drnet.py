@@ -290,7 +290,7 @@ class DRNet(pl.LightningModule):
         return end_points
     
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx=None):
         out = self._common_step(batch, batch_idx)
         loss = out['losses']
         self.log('train_loss', out['loss'])
@@ -301,7 +301,7 @@ class DRNet(pl.LightningModule):
                 prog_bar=True, on_step=True,
             )
         if 'completion_loss' in loss:
-            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('train_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('train_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
@@ -311,7 +311,7 @@ class DRNet(pl.LightningModule):
         loss = out['losses']
         self.log('val_loss', out['loss'], on_step=True)
         if 'completion_loss' in loss:
-            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('val_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('val_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
