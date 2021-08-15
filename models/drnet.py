@@ -296,7 +296,7 @@ class DRNet(pl.LightningModule):
         self.log('train_loss', out['loss'])
         for i, optimizer in enumerate(self.optimizers()):
             self.log(
-                f'lr #{i}',
+                f'lr#{i}',
                 optimizer.param_groups[0]['lr'],
                 prog_bar=True, on_step=True,
             )
