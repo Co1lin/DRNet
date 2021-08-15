@@ -385,9 +385,9 @@ if __name__ == '__main__':
     # vis_root = 'out/iscnet/2021-04-08T15:42:39.519971/visualization'
     # scene_name = 'scene0549_00'
     # scene_name = 'test_284_scene0081_02'
-    vis_root = 'visualized_0802_forward_completed'
+    vis_root = 'visualized'
     save_path = './visualized_for_comp/0'
-    scenes = os.listdir(vis_root)[:10]
+    scenes = os.listdir(vis_root)
 
     from multiprocessing import Pool
     from functools import partial
