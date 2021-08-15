@@ -292,13 +292,21 @@ class DRNet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         out = self._common_step(batch, batch_idx)
+        loss = out['losses']
         self.log('train_loss', out['loss'])
+        if 'completion_loss' in loss:
+            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('train_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
 
     def validation_step(self, batch, batch_idx):
         out = self._common_step(batch, batch_idx)
-        self.log('val_loss', out['loss'])
+        loss = out['losses']
+        self.log('val_loss', out['loss'], on_step=True)
+        if 'completion_loss' in loss:
+            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('val_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
 
@@ -306,11 +314,13 @@ class DRNet(pl.LightningModule):
         out = self(batch)
         loss = out['losses']
         self.log("test_loss", float(out['loss']), prog_bar=True, on_step=True)
-        print(float(out['loss']))
+        print(f'loss: {float(out["loss"])}', end=' ')
         if 'completion_loss' in loss:
-            self.log("test_comp_loss", float(loss['completion_loss']), prog_bar=True, on_step=True)
-            print(float(loss['completion_loss']))
-        
+            self.log('test_comp_loss', float(loss['completion_loss']), prog_bar=True, on_step=True)
+            self.log('test_det_loss', float(loss['detection_loss']), prog_bar=True, on_step=True)
+            print(f'det_loss: {float(out["detection_loss"])}', end=' ')
+            print(f'comp_loss: {float(out["completion_loss"])}', end=' ')
+                
         eval_metrics = {}
         if 'iou_stats' in out:
             cls_iou_stat = out['iou_stats']
@@ -388,7 +398,8 @@ class DRNet(pl.LightningModule):
         detection_loss = self.detection_loss(end_points, gt_data, self.dataset_config, self.device)
         if self.cfg.phase == 'completion':
             completion_loss = self.completion_loss(completion_loss)
-            total_loss = {**detection_loss, 
+            total_loss = {**detection_loss,
+                        'detection_loss': detection_loss['total'],
                         'completion_loss': completion_loss['completion_loss'], 
                         'mask_loss': completion_loss['mask_loss']}
             total_loss['total'] += completion_loss['total_loss']
