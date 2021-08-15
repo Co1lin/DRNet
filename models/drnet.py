@@ -324,8 +324,8 @@ class DRNet(pl.LightningModule):
         if 'completion_loss' in loss:
             self.log('test_comp_loss', float(loss['completion_loss']), prog_bar=True, on_step=True)
             self.log('test_det_loss', float(loss['detection_loss']), prog_bar=True, on_step=True)
-            print(f'det_loss: {float(out["detection_loss"])}', end=' ')
-            print(f'comp_loss: {float(out["completion_loss"])}', end=' ')
+            print(f'det_loss: {float(loss["detection_loss"])}', end=' ')
+            print(f'comp_loss: {float(loss["completion_loss"])}', end=' ')
                 
         eval_metrics = {}
         if 'iou_stats' in out:
