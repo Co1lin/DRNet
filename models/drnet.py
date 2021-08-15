@@ -200,6 +200,8 @@ class DRNet(pl.LightningModule):
         r"""
         :return: 
         """
+        from IPython import embed
+        embed()
         inputs = {'point_clouds': batch['point_clouds']}
         x = torch.zeros(5)
         end_points = {}
@@ -344,7 +346,9 @@ class DRNet(pl.LightningModule):
         optimizers = schedulers = {}
         optim_cfg = self.cfg.optimizer
 
-        if self.cfg.phase == 'detection' or not hasattr(self.cfg, 'freeze'):
+        if self.cfg.phase == 'detection' or \
+            not hasattr(self.cfg, 'freeze') or \
+            not self.cfg.freeze:
             optimizers['detection'] = optim.AdamW(
                 list(self.backbone.parameters()) + 
                 list(self.voting.parameters()) + 
@@ -365,7 +369,9 @@ class DRNet(pl.LightningModule):
             )
         optimizers_list = [v for _, v in optimizers.items()]
 
-        if self.cfg.phase == 'detection' or not hasattr(self.cfg, 'freeze'):
+        if self.cfg.phase == 'detection' or \
+            not hasattr(self.cfg, 'freeze') or \
+            not self.cfg.freeze:
             schedulers['detection'] = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer=optimizers['detection'],
                 patience=optim_cfg.detection.patience,
