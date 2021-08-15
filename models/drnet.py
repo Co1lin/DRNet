@@ -296,6 +296,12 @@ class DRNet(pl.LightningModule):
         out = self._common_step(batch, batch_idx)
         loss = out['losses']
         self.log('train_loss', out['loss'])
+        for i, optim in enumerate(self.optimizers()):
+            self.log(
+                'lr #{i}',
+                self.optimizers()[i].param_groups[0]['lr'],
+                prog_bar=True, on_step=True
+            )
         if 'completion_loss' in loss:
             self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('train_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
