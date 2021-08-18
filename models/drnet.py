@@ -290,18 +290,18 @@ class DRNet(pl.LightningModule):
         return end_points
     
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx=None):
         out = self._common_step(batch, batch_idx)
         loss = out['losses']
         self.log('train_loss', out['loss'])
-        for i, optim in enumerate(self.optimizers()):
+        for i, optimizer in enumerate(self.optimizers()):
             self.log(
-                'lr #{i}',
-                self.optimizers()[i].param_groups[0]['lr'],
-                prog_bar=True, on_step=True
+                f'lr#{i}',
+                optimizer.param_groups[0]['lr'],
+                prog_bar=True, on_step=True,
             )
         if 'completion_loss' in loss:
-            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('train_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('train_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
@@ -311,7 +311,7 @@ class DRNet(pl.LightningModule):
         loss = out['losses']
         self.log('val_loss', out['loss'], on_step=True)
         if 'completion_loss' in loss:
-            self.log('det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
+            self.log('val_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('val_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
         return out
 
@@ -324,8 +324,8 @@ class DRNet(pl.LightningModule):
         if 'completion_loss' in loss:
             self.log('test_comp_loss', float(loss['completion_loss']), prog_bar=True, on_step=True)
             self.log('test_det_loss', float(loss['detection_loss']), prog_bar=True, on_step=True)
-            print(f'det_loss: {float(out["detection_loss"])}', end=' ')
-            print(f'comp_loss: {float(out["completion_loss"])}', end=' ')
+            print(f'det_loss: {float(loss["detection_loss"])}', end=' ')
+            print(f'comp_loss: {float(loss["completion_loss"])}', end=' ')
                 
         eval_metrics = {}
         if 'iou_stats' in out:
