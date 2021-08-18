@@ -200,8 +200,6 @@ class DRNet(pl.LightningModule):
         r"""
         :return: 
         """
-        from IPython import embed
-        embed()
         inputs = {'point_clouds': batch['point_clouds']}
         x = torch.zeros(5)
         end_points = {}
