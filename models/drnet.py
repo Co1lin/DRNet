@@ -294,7 +294,11 @@ class DRNet(pl.LightningModule):
         out = self._common_step(batch, batch_idx)
         loss = out['losses']
         self.log('train_loss', out['loss'])
-        for i, optimizer in enumerate(self.optimizers()):
+        # print learning rates
+        optimizers = self.optimizers()
+        if not isinstance(optimizers, list):
+            optimizers = [optimizers]
+        for i, optimizer in enumerate(optimizers):
             self.log(
                 f'lr#{i}',
                 optimizer.param_groups[0]['lr'],
