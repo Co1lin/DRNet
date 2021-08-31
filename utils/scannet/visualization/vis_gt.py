@@ -331,5 +331,5 @@ if __name__ == '__main__':
     save_path = 'out/samples'
     save_path = os.path.join(save_path, scene_dirname)
     if not os.path.exists(save_path):
-        os.mkdir(save_path)
+        os.makedirs(save_path)
     scene.visualize(centroid=np.array([3, 0, 3]), save_path=os.path.join(save_path, 'verify.png'))

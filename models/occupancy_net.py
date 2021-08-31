@@ -32,10 +32,10 @@ class ONet(pl.LightningModule):
         encoder_latent_kwargs = {}
         self.z_dim = 32
         dim = 3
-        self.use_cls_for_completion = False
+        self.use_cls_for_completion = cfg.data.use_cls_for_completion
         if not True:
             c_dim = self.use_cls_for_completion*cfg.dataset_config.num_class + 128
-        else:
+        else:   # always skip propagate
             c_dim = self.use_cls_for_completion * self.dataset_config.num_class + 512
         self.threshold = 0.5
 
@@ -57,7 +57,8 @@ class ONet(pl.LightningModule):
                                          sample=False,
                                          refinement_step=0,
                                          simplify_nfaces=None,
-                                         preprocessor=None)
+                                         preprocessor=None,
+                                         use_cls_for_completion=self.use_cls_for_completion)
 
     def compute_loss(self, input_features_for_completion, input_points_for_completion, input_points_occ_for_completion,
                      cls_codes_for_completion, export_shape=False):
