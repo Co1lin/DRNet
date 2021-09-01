@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 import torch
 from data.dr_datamodule import DRDataModule
-from models.drnet import DRNet
+from models.drnet2 import DRNet
 
 def init_wandb(cfg):
     os.environ['WANDB_API_KEY'] = 'a5044d4b533063065587a9fce532ad394071fc48'
@@ -123,4 +123,4 @@ def main(cfg):
 if __name__ == '__main__':
     main()
 
-# python main.py task=train_comp gpus='[0,1,2,7]'
+# python main.py task=train_comp gpus='[0,1]' 'weight=""'

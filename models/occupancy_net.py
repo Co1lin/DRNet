@@ -111,6 +111,66 @@ class ONet(pl.LightningModule):
 
         return loss, voxels_out
 
+    def compute_loss_with_cls_mask(self, input_features_for_completion, 
+                                   input_points_for_completion, input_points_occ_for_completion,
+                                   cls_codes_for_completion, cls_idx, export_shape=False):
+        '''
+        Compute loss for OccNet
+        :param input_features_for_completion (N_B x D): Number of bounding boxes x Dimension of proposal feature.
+        :param input_points_for_completion (N_B, N_P, 3): Number of bounding boxes x Number of Points x 3.
+        :param input_points_occ_for_completion (N_B, N_P): Corresponding occupancy values.
+        :param cls_codes_for_completion (N_B, N_C): One-hot category codes.
+        :param export_shape (bool): whether to export a shape voxel example.
+        :return:
+        '''
+        batch_size = input_features_for_completion.size(0)
+        if self.use_cls_for_completion:
+            cls_codes_for_completion = cls_codes_for_completion.float()
+            input_features_for_completion = torch.cat([input_features_for_completion, cls_codes_for_completion], dim=-1)
+
+        kwargs = {}
+        '''Infer latent code z.'''
+        if self.z_dim > 0:
+            q_z = self.infer_z(input_points_for_completion, input_points_occ_for_completion, input_features_for_completion, **kwargs)
+            z = q_z.rsample()
+            # KL-divergence
+            p0_z = self.get_prior_z(self.z_dim)
+            kl = dist.kl_divergence(q_z, p0_z).sum(dim=-1)
+            loss = kl.mean()
+        else:
+            z = torch.empty(size=(batch_size, 0))
+            loss = 0.
+
+        '''Decode to occupancy voxels.
+        cls_codes_for_completion: N_obj, 8
+        logits: N_obj, 2048
+        loss_i: N_obj, 2048
+        '''
+        logits = self.decode(input_points_for_completion, z, input_features_for_completion, **kwargs).logits
+        loss_i = F.binary_cross_entropy_with_logits(
+            logits, input_points_occ_for_completion, reduction='none')
+        loss_i = loss_i[ torch.argmax(cls_codes_for_completion, dim=-1) == cls_idx ]
+        if loss_i.shape[0] > 0:
+            loss += loss_i.sum(-1).mean()
+
+            '''Export Shape Voxels.'''
+            if export_shape:
+                shape = (16, 16, 16)
+                p = make_3d_grid([-0.5 + 1/32] * 3, [0.5 - 1/32] * 3, shape)
+                p = p.expand(batch_size, *p.size())
+                z = self.get_z_from_prior((batch_size,), sample=False)
+                kwargs = {}
+                p_r = self.decode(p, z, input_features_for_completion, **kwargs)
+
+                occ_hat = p_r.probs.view(batch_size, *shape)
+                voxels_out = (occ_hat >= self.threshold)
+            else:
+                voxels_out = None
+
+            return loss, voxels_out
+        else:
+            return 0, None
+
     def forward(self, input_points_for_completion, input_features_for_completion, cls_codes_for_completion, sample=False, **kwargs):
         '''
         Performs a forward pass through the network.

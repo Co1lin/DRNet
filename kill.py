@@ -1,6 +1,6 @@
 import os
 
-lines = os.popen('ps aux | grep train_all').readlines()
+lines = os.popen('ps aux | grep "train_comp"').readlines()
 print(lines)
 for line in lines:
     line = line.split()
