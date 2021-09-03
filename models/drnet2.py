@@ -155,37 +155,36 @@ class DRNet(pl.LightningModule):
                 #     [i for i in range(num_objs)]
                 # )
                 # completion_loss = torch.mean(compl_losses)
-                for index in range(num_objs):
-                    net_idx = torch.argmax(cls_codes_for_completion[index])
-                    compl_loss, _ = self.completions[net_idx].compute_loss(
-                        torch.unsqueeze(object_input_features[index], 0),
-                        torch.unsqueeze(input_points_for_completion[index], 0),
-                        torch.unsqueeze(input_points_occ_for_completion[index], 0),
-                        torch.unsqueeze(cls_codes_for_completion[index], 0),
-                        False
+                for net_idx in range(8):
+                    compl_loss, _ = self.completions[net_idx].compute_loss_with_cls_mask(
+                        object_input_features,
+                        input_points_for_completion,
+                        input_points_occ_for_completion,
+                        cls_codes_for_completion,
+                        net_idx,
+                        False,
                     )
-                    completion_loss += 1/num_objs * compl_loss
+                    completion_loss += 1/8 * compl_loss
                 
                 if shape_example is not None:
                     gt_voxels = batch['object_voxels'][0][BATCH_PROPOSAL_IDs[0,..., 1]]
                     ious = compute_iou(shape_example.detach().cpu().numpy(), gt_voxels.detach().cpu().numpy())
                     cls_labels = BATCH_PROPOSAL_IDs[0, ..., 2].detach().cpu().numpy()
-                    iou_stats = {'cls': cls_labels, 'iou': ious}                    
+                    iou_stats = {'cls': cls_labels, 'iou': ious}
                 else:
                     iou_stats = None
                 
                 if self.cfg.generation.generate_mesh:
-                    # p = Pool(processes=num_processes)
-                    # meshes = p.map(partial(gen_mesh, cls_codes_for_completion, object_input_features), [i for i in range(num_objs)])
+                    
                     meshes = []
-                    for index in range(cls_codes_for_completion.shape[0]):
-                        net_idx = torch.argmax(cls_codes_for_completion[index])
+                    for obj_i in range(object_input_features.shape[0]):
+                        net_idx = torch.argmax(cls_codes_for_completion[obj_i], dim=-1)
                         mesh = self.completions[net_idx].generator.generate_mesh(
-                            torch.unsqueeze(object_input_features[index], 0),
-                            torch.unsqueeze(cls_codes_for_completion[index], 0)
+                            torch.unsqueeze(object_input_features[obj_i], dim=0),
+                            torch.unsqueeze(cls_codes_for_completion[obj_i], dim=0)
                         )
                         meshes += mesh
-
+                    
                 else:
                     meshes = None
                 
