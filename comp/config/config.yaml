@@ -1,0 +1,8 @@
+defaults:
+  - task: train
+
+gpus: [0,1]
+num_workers: 32
+seed: 10
+
+weight: ''

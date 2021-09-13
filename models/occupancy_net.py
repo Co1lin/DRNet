@@ -36,7 +36,7 @@ class ONet(pl.LightningModule):
         if not True:
             c_dim = self.use_cls_for_completion*cfg.dataset_config.num_class + 128
         else:   # always skip propagate
-            c_dim = self.use_cls_for_completion * self.dataset_config.num_class + 512
+            c_dim = self.use_cls_for_completion * self.dataset_config.num_class + 128 # TODO: 512
         self.threshold = 0.5
 
         '''Module Configs'''

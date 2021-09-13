@@ -4,21 +4,18 @@ import json
 from typing import List
 import numpy as np
 import torch
+import pytorch_lightning as pl
 from torch.utils import data
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.distributed import DistributedSampler
-
-from utils.tools import read_json_file, read_pkl_file
-from utils import pc_util
-
-from net_utils.libs import random_sampling_by_instance, rotz, flip_axis_to_camera
 from net_utils.transforms import SubsamplePoints
 
-from data.scannet_config import ScannetConfig
-
+from torch.utils.data.distributed import DistributedSampler
+from utils.tools import read_json_file, read_pkl_file
+from utils import pc_util
+from net_utils.libs import random_sampling_by_instance, rotz, flip_axis_to_camera
 from external import binvox_rw
 
-def get_splited_data(path, mode: str = None) -> List[str]:
+def get_splited_data(path, mode: str) -> List[str]:
     split_file_path = os.path.join(path, 'split.json')
     if os.path.exists(split_file_path):
         with open(split_file_path) as f:
@@ -38,10 +35,10 @@ def get_splited_data(path, mode: str = None) -> List[str]:
 
 class CompSet(Dataset):
 
-    def __init__(self, mode: str = None):
+    def __init__(self, mode: str):
         super().__init__()
 
-        self.shapenet_pc_path = 'datasets/ShapeNetv2_data/pointcloud'
+        self.shapenet_pc_path = 'datasets/ShapeNetv2_data/point'
         self.shapenetid_to_name = {
             '04256520': 'sofa',
             '04379243': 'table',
@@ -67,8 +64,8 @@ class CompSet(Dataset):
 
         classes_path = [os.path.join(self.shapenet_pc_path, class_id) for class_id in self.shapenetid_to_name.keys()]
         self.objs_path = []
-        for class_path in classes_path:            
-            self.objs_path += get_splited_data(class_path)
+        for class_path in classes_path:
+            self.objs_path += get_splited_data(class_path, mode)
 
         self.mode = mode
         self.n_points_object = [1024, 1024]
@@ -135,6 +132,10 @@ def get_dataloader(mode: str = None, config = None):
         random.seed(worker_seed)
 
     dataset = CompSet(mode)
+    '''
+    val: 4535
+    train: 15892
+    '''
     # sampler = DistributedSampler(dataset)
     dataloader = DataLoader(
         dataset=dataset,
@@ -147,3 +148,19 @@ def get_dataloader(mode: str = None, config = None):
         generator=g,
     )
     return dataloader
+
+
+class CompDataModule(pl.LightningDataModule):
+
+    def __init__(self, config = None):
+        super().__init__()
+        self.cfg = config
+
+    def train_dataloader(self):
+        return get_dataloader('train', self.cfg)
+
+    def val_dataloader(self):
+        return get_dataloader('val', self.cfg)
+
+    def test_dataloader(self):
+        return get_dataloader('test', self.cfg)

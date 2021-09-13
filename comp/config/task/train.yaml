@@ -1,0 +1,49 @@
+name: train
+mode: train
+phase: completion
+
+resume: false
+finetune: false
+
+batch_size: 32
+epochs: 480
+
+optimizer:
+  latent:
+    lr: 1e-3
+    betas: [0.9, 0.999]
+    eps: 1e-8
+    patience: 40
+    factor: 0.1
+    threshold: 0.01
+    weight_decay: 0
+  onet:
+    lr: 1e-4
+    betas: [0.9, 0.999]
+    eps: 1e-8
+    patience: 40
+    factor: 0.1
+    threshold: 0.01
+    weight_decay: 0
+
+data:
+  dataset: 'datasets'
+  num_point: 80000
+  num_target: 256
+  ap_iou_thresholds: [0.5]
+  dump_threshold: 0.5
+  conf_thresh: 0.05
+  nms_iou: 0.25
+  cluster_sampling: vote_fps
+  remove_empty_box: false
+  use_3d_nms: true
+  use_old_type_nms: false
+  cls_nms: true
+  per_class_proposal: true
+  use_cls_for_completion: false
+
+generation:
+  evaluate_mesh_mAP: false
+  export_shape: false
+  generate_mesh: false
+  dump_results: false
