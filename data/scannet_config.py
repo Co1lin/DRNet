@@ -19,7 +19,7 @@ SHAPENETCLASSES = ['void',
                    'guitar', 'washer', 'bicycle', 'faucet', 'printer',
                    'cap', 'clock', 'helmet', 'flowerpot', 'microwaves']
 
-OBJ_CLASS_IDS = np.array([ 1,  7,  8, 13, 20, 31, 34, 43])
+OBJ_CLASS_IDS = np.array(SHAPENETCLASSES[ 1,  7,  8, 13, 20, 31, 34, 43])
 
 class ScannetConfig():
     
