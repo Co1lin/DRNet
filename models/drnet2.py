@@ -175,7 +175,6 @@ class DRNet(pl.LightningModule):
                     iou_stats = None
                 
                 if self.cfg.generation.generate_mesh:
-                    
                     meshes = []
                     for obj_i in range(object_input_features.shape[0]):
                         net_idx = torch.argmax(cls_codes_for_completion[obj_i], dim=-1)
@@ -236,9 +235,7 @@ class DRNet(pl.LightningModule):
         :return: 
         """
         inputs = {'point_clouds': batch['point_clouds']}
-        x = torch.zeros(5)
         end_points = {}
-        
         # pointnet++ backbone
         end_points = self.backbone(inputs['point_clouds'], end_points)
 
@@ -317,7 +314,6 @@ class DRNet(pl.LightningModule):
                     False,
                 )
                 completion_loss += 1/num_objs * compl_loss'''
-
             for net_idx in range(8):
                 compl_loss, _ = self.completions[net_idx].compute_loss_with_cls_mask(
                     object_input_features,
@@ -328,7 +324,6 @@ class DRNet(pl.LightningModule):
                     export_shape,
                 )
                 completion_loss += 1/8 * compl_loss
-                
             '''original
             completion_loss, shape_example = self.completion.compute_loss(
                 object_input_features,
@@ -367,7 +362,7 @@ class DRNet(pl.LightningModule):
             self.log(
                 f'lr#{i}',
                 optimizer.param_groups[0]['lr'],
-                prog_bar=True, on_step=True,
+                prog_bar=True, on_step=True
             )
         if 'completion_loss' in loss:
             self.log('train_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
@@ -379,7 +374,7 @@ class DRNet(pl.LightningModule):
         self.validating = True
         out = self._common_step(batch, batch_idx)
         loss = out['losses']
-        self.log('val_loss', out['loss'], on_step=True)
+        self.log('val_loss', out['loss'], on_step=True, sync_dist=True)
         if 'completion_loss' in loss:
             self.log('val_det_loss', loss['detection_loss'], prog_bar=True, on_step=True)
             self.log('val_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
