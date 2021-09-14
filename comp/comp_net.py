@@ -59,6 +59,7 @@ class CompNet(pl.LightningModule):
         :param batch: { 
                         'points':       (batch_size, 2048, 3),
                         'occ':          (batch_size, 2048),
+                        'index':        (batch_size),
                         'obj_class':    (batch_size),
                         'volume':       (batch_size),
                     }
@@ -67,7 +68,7 @@ class CompNet(pl.LightningModule):
         batch_size = self.cfg.batch_size
         this_batch_size = batch['obj_class'].shape[0]
         device = self.device
-        latent_layers = self.latent_layers[batch_idx*batch_size : batch_idx*batch_size +  this_batch_size]
+        latent_layers = [ self.latent_layers[i] for i in batch['index'] ]
         object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
                                     for latent_layer in latent_layers
                                 ])
@@ -119,7 +120,7 @@ class CompNet(pl.LightningModule):
         loss = out['losses']
         self.log('val_loss', out['loss'])
         # print other losses
-        self.log('val_comp_loss', loss['completion_loss'], prog_bar=True, on_step=True)
+        self.log('val_comp_loss', loss['completion_loss'], prog_bar=True)
         return out
 
     def test_step(self, batch, batch_idx):

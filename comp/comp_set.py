@@ -91,7 +91,7 @@ class CompSet(Dataset):
             occupancies = np.unpackbits(occupancies)[:points.shape[0]]
         occupancies = occupancies.astype(np.float32)
 
-        data = {'points':points, 'occ': occupancies}
+        data = {'points':points, 'occ': occupancies, 'index': index}
         if self.points_transform is not None:
             data = self.points_transform(data)
         
