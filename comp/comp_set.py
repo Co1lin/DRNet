@@ -79,7 +79,10 @@ class CompSet(Dataset):
         r"""
         :return: { 'points': (2048, 3), 'occ': (2048,), 'volume': (1,), }
         """
-        obj = dict(np.load(self.objs_path[index]))
+        try:
+            obj = dict(np.load(self.objs_path[index], allow_pickle=True))
+        except:
+            return self.__getitem__(index - 1)
 
         points = obj['points']
         points = points.astype(np.float32)

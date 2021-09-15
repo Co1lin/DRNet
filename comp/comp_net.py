@@ -37,6 +37,10 @@ class CompNet(pl.LightningModule):
         self.latent_layers = nn.ModuleList([
             nn.Linear(1, 128) for _ in range(15892)
         ])
+        if self.cfg.mode == 'test':
+            self.latent_layers = nn.ModuleList([
+                nn.Linear(1, 128) for _ in range(15892)
+            ])
 
         self.completion_loss = ONet_Loss(0.005)
 
@@ -52,7 +56,17 @@ class CompNet(pl.LightningModule):
 
 
     def forward(self, batch):
+        r"""
+        :param batch: { 
+                        'points':       (batch_size, 2048, 3),
+                        'occ':          (batch_size, 2048),
+                        'index':        (batch_size),
+                        'obj_class':    (batch_size),
+                        'volume':       (batch_size),
+                    }
+        """
         pass
+
 
     def _common_step(self, batch, batch_idx):
         r"""
