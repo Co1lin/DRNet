@@ -1,6 +1,7 @@
 datasets
 **/.DS_Store
 visualized*
+comp/mesh*
 
 lightning_logs/
 wandb/

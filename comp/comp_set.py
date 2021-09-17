@@ -94,7 +94,8 @@ class CompSet(Dataset):
             occupancies = np.unpackbits(occupancies)[:points.shape[0]]
         occupancies = occupancies.astype(np.float32)
 
-        data = {'points':points, 'occ': occupancies, 'index': index}
+        data = { 'points':points, 'occ': occupancies, 'index': index }
+        data['file_name'] = os.path.basename(self.objs_path[index]).split('.npz')[0]
         if self.points_transform is not None:
             data = self.points_transform(data)
         
@@ -138,6 +139,7 @@ def get_dataloader(mode: str = None, config = None):
     '''
     val: 4535
     train: 15892
+    test: 2267
     '''
     # sampler = DistributedSampler(dataset)
     dataloader = DataLoader(
