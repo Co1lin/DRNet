@@ -51,12 +51,8 @@ class Encoder_Latent(nn.Module):
         net = self.fc_0(x.unsqueeze(-1))
         net = net + self.fc_pos(p)
         
-        try:
-            if self.c_dim != 0:
-                net = net + self.fc_c(c).unsqueeze(1)
-        except:
-            from IPython import embed
-            embed()
+        if self.c_dim != 0:
+            net = net + self.fc_c(c).unsqueeze(1)
 
         net = self.fc_1(self.actvn(net))
         pooled = self.pool(net, dim=1, keepdim=True).expand(net.size())

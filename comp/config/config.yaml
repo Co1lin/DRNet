@@ -5,4 +5,4 @@ gpus: [0,1]
 num_workers: 32
 seed: 10
 
-weight: 'outputs/2021-09-14/15-45-14/last.ckpt'
+weight: 'outputs/2021-09-21/20-50-25/last.ckpt'

@@ -1,6 +1,7 @@
 import os
 import random
 import json
+from re import S
 from typing import List
 import numpy as np
 import torch
@@ -20,6 +21,7 @@ def get_splited_data(path, mode: str) -> List[str]:
     if os.path.exists(split_file_path):
         with open(split_file_path) as f:
             d = json.load(f)
+            #return d['train']
             return d[mode]
     else:
         with open(split_file_path, 'w') as f:
@@ -63,6 +65,7 @@ class CompSet(Dataset):
         self.classid_to_shapenetid = {v:k for k, v in self.shapenetid_to_classid.items()}
 
         classes_path = [os.path.join(self.shapenet_pc_path, class_id) for class_id in self.shapenetid_to_name.keys()]
+        classes_path = [os.path.join(self.shapenet_pc_path, '03001627')]
         self.objs_path = []
         for class_path in classes_path:
             self.objs_path += get_splited_data(class_path, mode)

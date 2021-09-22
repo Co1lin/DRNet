@@ -5,4 +5,4 @@ gpus: [0,1]
 num_workers: 32
 seed: 10
 
-weight: 'outputs/2021-07-30/01-12-14/train_det-epoch=288-val_loss=6.07-best.ckpt'
+weight: 'outputs/2021-09-17/14-48-45/last.ckpt'

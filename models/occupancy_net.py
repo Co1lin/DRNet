@@ -30,13 +30,13 @@ class ONet(pl.LightningModule):
         '''Parameter Configs'''
         decoder_kwargs = {}
         encoder_latent_kwargs = {}
-        self.z_dim = 32
+        self.z_dim = 0#32
         dim = 3
         self.use_cls_for_completion = cfg.data.use_cls_for_completion
         if not True:
             c_dim = self.use_cls_for_completion*cfg.dataset_config.num_class + 128
         else:   # always skip propagate
-            c_dim = self.use_cls_for_completion * self.dataset_config.num_class + 128 # TODO: 512
+            c_dim = self.use_cls_for_completion * self.dataset_config.num_class + 512 # TODO: 512
         self.threshold = 0.5
 
         '''Module Configs'''

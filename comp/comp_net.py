@@ -46,6 +46,8 @@ Shapenetid_to_classid = {
 }
 Classid_to_shapenetid = {v:k for k, v in Shapenetid_to_classid.items()}
 
+latent_dim = 512
+
 class CompNet(pl.LightningModule):
     
     def __init__(self, config = None):
@@ -55,12 +57,11 @@ class CompNet(pl.LightningModule):
         # configs
         self.cfg = self.hparams.config.task
 
-        self.completion_nets = nn.ModuleList([
-            ONet(self.cfg) for _ in range(8)
-        ])
+        self.completion_net = ONet(self.cfg)
+
         if True: #self.cfg.mode == 'train':
             self.latent_layers = nn.ModuleList([
-                nn.Linear(1, 128) for _ in range(15892)
+                nn.Linear(1, latent_dim) for _ in range(5000)
             ])
 
         self.completion_loss = ONet_Loss(0.005)
@@ -87,55 +88,69 @@ class CompNet(pl.LightningModule):
                         'file_name':    (batch_size),
                     }
         """
-        batch_size = self.cfg.batch_size    # 1
-        this_batch_size = batch['obj_class'].shape[0]   # 1
+        batch_size = self.cfg.batch_size
+        this_batch_size = batch['obj_class'].shape[0]
         device = self.device
-        net_idx = batch['obj_class']
         input_points_for_completion = batch['points']
         input_points_occ_for_completion = batch['occ']
         cls_codes_for_completion = nn.functional.one_hot(batch['obj_class'], num_classes=8)
-
-        best_latent_vector = torch.randn(1, 128).to(self.device)
+        
         min_loss = 0x7fffffff
-        not_decrease_steps = 0
         with torch.enable_grad():
-            latent_layer = nn.Linear(1, 128).to(self.device)
+            latent_layers = [ nn.Linear(1, latent_dim).to(self.device) for _ in range(this_batch_size) ]
+            optim_params = []
+            for layer in latent_layers:
+                optim_params += list(layer.parameters())
+            optimizer = optim.AdamW(optim_params, lr=1e-3)
 
-            optimizer = optim.AdamW(latent_layer.parameters(), lr=1e-3)
+            not_decrease_steps  = 0
             pbar = tqdm(total=1e6)
-            while not_decrease_steps < 100:
+            counter = 0;
+            while not_decrease_steps < 1000 and counter < 5000:
+                counter += 1
                 optimizer.zero_grad()
-
-                object_input_features = torch.stack([
-                    latent_layer(torch.ones(1).to(self.device))
-                ])  # (batch_size, 128)
-                completion_loss, _ = self.completion_nets[net_idx].compute_loss_with_cls_mask(
+                object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
+                                    for latent_layer in latent_layers
+                                ])
+                completion_loss = 0
+                compl_loss, _ = self.completion_net.compute_loss(
                     object_input_features,
                     input_points_for_completion,
                     input_points_occ_for_completion,
                     cls_codes_for_completion,
-                    net_idx,
                     False,
                 )
+                # object_input_features0 = object_input_features[0].unsqueeze(0)
+                # input_points_for_completion0 = input_points_for_completion[0].unsqueeze(0)
+                # input_points_occ_for_completion0 = input_points_occ_for_completion[0].unsqueeze(0)
+                # cls_codes_for_completion0 = cls_codes_for_completion[0].unsqueeze(0)
+                # compl_loss0, _ = self.completion_net.compute_loss(
+                #     object_input_features0,
+                #     input_points_for_completion0,
+                #     input_points_occ_for_completion0,
+                #     cls_codes_for_completion0,
+                #     False,
+                # )
+                completion_loss += compl_loss
                 if completion_loss < min_loss:
                     min_loss = completion_loss
-                    best_latent_vector = object_input_features.detach()
                     completion_loss.backward()
                     optimizer.step()
                     not_decrease_steps = 0
                 else:
                     not_decrease_steps += 1
-                
                 pbar.update(1)
                 pbar.set_description(f'loss: {completion_loss}', refresh=True)
             # end while
         # end with
         end_points = { 'loss': min_loss }
-        meshes = self.completion_nets[net_idx].generator.generate_mesh(
-            best_latent_vector, cls_codes_for_completion
+        object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
+                                    for latent_layer in latent_layers
+                                ])
+        meshes = self.completion_net.generator.generate_mesh(
+            object_input_features, cls_codes_for_completion
         )
         end_points['meshes'] = meshes
-
         return end_points
 
 
@@ -161,16 +176,15 @@ class CompNet(pl.LightningModule):
         input_points_occ_for_completion = batch['occ']
         cls_codes_for_completion = nn.functional.one_hot(batch['obj_class'], num_classes=8)
         completion_loss = 0
-        for net_idx in range(8):
-            compl_loss, _ = self.completion_nets[net_idx].compute_loss_with_cls_mask(
-                object_input_features,
-                input_points_for_completion,
-                input_points_occ_for_completion,
-                cls_codes_for_completion,
-                net_idx,
-                False,
-            )
-            completion_loss += 1/8 * compl_loss
+
+        compl_loss, _ = self.completion_net.compute_loss(
+            object_input_features,
+            input_points_for_completion,
+            input_points_occ_for_completion,
+            cls_codes_for_completion,
+            False,
+        )
+        completion_loss += compl_loss
 
         compl_loss = torch.cat([completion_loss.unsqueeze(0),
                                     torch.zeros(1).to(self.device)], dim = 0)
@@ -211,6 +225,10 @@ class CompNet(pl.LightningModule):
                     }
         :param batch_idx: start from zero
         """
+        min_loss = 1000
+        self.log('val_loss', min_loss, prog_bar=True, on_step=True)
+        return min_loss
+
         batch_size = self.cfg.batch_size
         this_batch_size = batch['obj_class'].shape[0]
         device = self.device
@@ -220,28 +238,27 @@ class CompNet(pl.LightningModule):
         
         min_loss = 0x7fffffff
         with torch.enable_grad():
-            latent_layers = [ nn.Linear(1, 128).to(self.device) for _ in range(batch_size) ]
+            latent_layers = [ nn.Linear(1, latent_dim).to(self.device) for _ in range(this_batch_size) ]
             optim_params = []
             for layer in latent_layers:
                 optim_params += list(layer.parameters())
             optimizer = optim.AdamW(optim_params, lr=1e-3)
 
             not_decrease_steps  = 0
-            while not_decrease_steps < 50:
+            while not_decrease_steps < 100:
+                optimizer.zero_grad()
                 object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
                                     for latent_layer in latent_layers
                                 ])
                 completion_loss = 0
-                for net_idx in range(8):
-                    compl_loss, _ = self.completion_nets[net_idx].compute_loss_with_cls_mask(
-                        object_input_features,
-                        input_points_for_completion,
-                        input_points_occ_for_completion,
-                        cls_codes_for_completion,
-                        net_idx,
-                        False,
-                    )
-                    completion_loss += 1/8 * compl_loss
+                compl_loss, _ = self.completion_net.compute_loss(
+                    object_input_features,
+                    input_points_for_completion,
+                    input_points_occ_for_completion,
+                    cls_codes_for_completion,
+                    False,
+                )
+                completion_loss += compl_loss
                 if completion_loss < min_loss:
                     min_loss = completion_loss
                     completion_loss.backward()
@@ -256,17 +273,19 @@ class CompNet(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         out = self(batch)
-        net_idx = batch['obj_class'].item()
         # export
         meshes = out['meshes']
+        i = 0
         for mesh in meshes:
+            net_idx = batch['obj_class'][i].item()
             mesh_dir_path = os.path.join('comp/meshes',
                 f'{net_idx}_{ Shapenetid_to_name[Classid_to_shapenetid[net_idx]] }')
             if not os.path.exists(mesh_dir_path):
                 os.makedirs(mesh_dir_path)
             mesh_path = os.path.join(mesh_dir_path,
-                f'{ batch["file_name"][0] }_{ int(out["loss"]) }.ply')
+                f'{ batch["file_name"][i] }_{ int(out["loss"]) }.ply')
             mesh.export(mesh_path)
+            i += 1
         return out
 
     def configure_optimizers(self):
@@ -282,7 +301,7 @@ class CompNet(pl.LightningModule):
         })
         # onet
         optim_params.append({
-            'params': list(self.completion_nets.parameters()),
+            'params': list(self.completion_net.parameters()),
             'lr': optim_cfg.onet.lr,
             'betas': optim_cfg.onet.betas,
             'eps': optim_cfg.onet.eps,
@@ -295,6 +314,7 @@ class CompNet(pl.LightningModule):
             factor=optim_cfg.onet.factor,
             threshold=optim_cfg.onet.threshold,
         )
+        return optimizer
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
