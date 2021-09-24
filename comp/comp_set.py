@@ -21,17 +21,17 @@ def get_splited_data(path, mode: str) -> List[str]:
     if os.path.exists(split_file_path):
         with open(split_file_path) as f:
             d = json.load(f)
-            #return d['train']
             return d[mode]
     else:
         with open(split_file_path, 'w') as f:
             files = os.listdir(path)
             num = len(files)
             random.shuffle(files)
-            d = {}
-            d['train'] = [os.path.join(path, file) for file in files[:int(num*0.7)]]
-            d['val'] = [os.path.join(path, file) for file in files[int(num*0.7) + 1 : int(num*0.9)]]
-            d['test'] = [os.path.join(path, file) for file in files[int(num*0.9) + 1 :]]
+            d = {}  # 8:1:1
+            portion = [0.8, 0.9]
+            d['train'] = [os.path.join(path, file) for file in files[:int(num*portion[0])]]
+            d['val'] = [os.path.join(path, file) for file in files[int(num*portion[0]) + 1 : int(num*portion[1])]]
+            d['test'] = [os.path.join(path, file) for file in files[int(num*portion[1]) + 1 :]]
             json.dump(d, f)
             return d[mode]
 
@@ -65,7 +65,6 @@ class CompSet(Dataset):
         self.classid_to_shapenetid = {v:k for k, v in self.shapenetid_to_classid.items()}
 
         classes_path = [os.path.join(self.shapenet_pc_path, class_id) for class_id in self.shapenetid_to_name.keys()]
-        classes_path = [os.path.join(self.shapenet_pc_path, '03001627')]
         self.objs_path = []
         for class_path in classes_path:
             self.objs_path += get_splited_data(class_path, mode)
