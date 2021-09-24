@@ -19,6 +19,7 @@ data:
   cls_nms: true
   per_class_proposal: true
   use_cls_for_completion: false
+  z_dim: 0
 
 generation:
   evaluate_mesh_mAP: true

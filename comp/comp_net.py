@@ -46,7 +46,7 @@ Shapenetid_to_classid = {
 }
 Classid_to_shapenetid = {v:k for k, v in Shapenetid_to_classid.items()}
 
-latent_dim = 512
+latent_dim = 256
 
 class CompNet(pl.LightningModule):
     
@@ -61,7 +61,7 @@ class CompNet(pl.LightningModule):
 
         if True: #self.cfg.mode == 'train':
             self.latent_layers = nn.ModuleList([
-                nn.Linear(1, latent_dim) for _ in range(5000)
+                nn.Linear(1, latent_dim) for _ in range(18200)
             ])
 
         self.completion_loss = ONet_Loss(0.005)
@@ -225,10 +225,9 @@ class CompNet(pl.LightningModule):
                     }
         :param batch_idx: start from zero
         """
-        min_loss = 1000
-        self.log('val_loss', min_loss, prog_bar=True, on_step=True)
-        return min_loss
-
+        # min_loss = 1000
+        # self.log('val_loss', min_loss, prog_bar=True, on_step=True)
+        # return min_loss
         batch_size = self.cfg.batch_size
         this_batch_size = batch['obj_class'].shape[0]
         device = self.device
@@ -245,7 +244,7 @@ class CompNet(pl.LightningModule):
             optimizer = optim.AdamW(optim_params, lr=1e-3)
 
             not_decrease_steps  = 0
-            while not_decrease_steps < 100:
+            while not_decrease_steps < 500:
                 optimizer.zero_grad()
                 object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
                                     for latent_layer in latent_layers
@@ -314,7 +313,7 @@ class CompNet(pl.LightningModule):
             factor=optim_cfg.onet.factor,
             threshold=optim_cfg.onet.threshold,
         )
-        return optimizer
+        #return optimizer
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
