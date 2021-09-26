@@ -31,7 +31,7 @@ output_dir: str = None
 def train(cfg):
     ckpt_callback_list = [
         ModelCheckpoint(
-            monitor='val_loss',
+            monitor='train_loss',
             dirpath=output_dir,
             filename=f'{cfg.task.name}-' + '{epoch}-{val_loss:.2f}-best',
             save_top_k=3,
@@ -49,6 +49,7 @@ def train(cfg):
             log_every_n_steps=10, 
             callbacks=ckpt_callback_list,
             sync_batchnorm=True,
+            #val_check_interval=cfg.val_check_interval,
             #plugins=DDPPlugin(find_unused_parameters=False),
         )
     else:
@@ -61,6 +62,7 @@ def train(cfg):
             log_every_n_steps=10, 
             callbacks=ckpt_callback_list,
             sync_batchnorm=True,
+            #val_check_interval=cfg.val_check_interval,
             #plugins=DDPPlugin(find_unused_parameters=False),
         )
     # end if

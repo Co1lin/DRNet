@@ -46,6 +46,7 @@ def train(cfg):
             log_every_n_steps=10, 
             callbacks=ckpt_callback_list,
             sync_batchnorm=True,
+            val_check_interval=cfg.val_check_interval,
             #plugins=DDPPlugin(find_unused_parameters=False),
         )
     else:
@@ -58,6 +59,7 @@ def train(cfg):
             log_every_n_steps=10, 
             callbacks=ckpt_callback_list,
             sync_batchnorm=True,
+            val_check_interval=cfg.val_check_interval,
             #plugins=DDPPlugin(find_unused_parameters=False),
         )
     # end if

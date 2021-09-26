@@ -46,7 +46,7 @@ Shapenetid_to_classid = {
 }
 Classid_to_shapenetid = {v:k for k, v in Shapenetid_to_classid.items()}
 
-latent_dim = 256
+latent_dim = 512
 
 class CompNet(pl.LightningModule):
     
@@ -225,9 +225,9 @@ class CompNet(pl.LightningModule):
                     }
         :param batch_idx: start from zero
         """
-        # min_loss = 1000
-        # self.log('val_loss', min_loss, prog_bar=True, on_step=True)
-        # return min_loss
+        min_loss = 1000
+        self.log('val_loss', min_loss, prog_bar=True, on_step=True)
+        return min_loss
         batch_size = self.cfg.batch_size
         this_batch_size = batch['obj_class'].shape[0]
         device = self.device
@@ -244,7 +244,8 @@ class CompNet(pl.LightningModule):
             optimizer = optim.AdamW(optim_params, lr=1e-3)
 
             not_decrease_steps  = 0
-            while not_decrease_steps < 500:
+            counter = 0
+            while not_decrease_steps < 60 and counter < 500:
                 optimizer.zero_grad()
                 object_input_features = torch.stack([latent_layer(torch.ones(1).to(self.device))
                                     for latent_layer in latent_layers
@@ -265,6 +266,7 @@ class CompNet(pl.LightningModule):
                     not_decrease_steps = 0
                 else:
                     not_decrease_steps += 1
+                counter += 1
             # end while
         # end with
         self.log('val_loss', min_loss, prog_bar=True, on_step=True)
@@ -318,7 +320,7 @@ class CompNet(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_loss",
+                "monitor": "train_loss",
             },
         }
 

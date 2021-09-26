@@ -13,7 +13,7 @@ optimizer:
     lr: 1e-3
     betas: [0.9, 0.999]
     eps: 1e-8
-    patience: 40
+    patience: 200
     factor: 0.1
     threshold: 0.01
     weight_decay: 0
@@ -21,7 +21,7 @@ optimizer:
     lr: 1e-4
     betas: [0.9, 0.999]
     eps: 1e-8
-    patience: 40
+    patience: 200
     factor: 0.1
     threshold: 0.01
     weight_decay: 0
@@ -41,7 +41,7 @@ data:
   cls_nms: true
   per_class_proposal: true
   use_cls_for_completion: false
-  z_dim: 32
+  z_dim: 0
 
 generation:
   evaluate_mesh_mAP: false

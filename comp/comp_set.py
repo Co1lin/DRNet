@@ -65,6 +65,7 @@ class CompSet(Dataset):
         self.classid_to_shapenetid = {v:k for k, v in self.shapenetid_to_classid.items()}
 
         classes_path = [os.path.join(self.shapenet_pc_path, class_id) for class_id in self.shapenetid_to_name.keys()]
+        classes_path = [os.path.join(self.shapenet_pc_path, '02871439')]
         self.objs_path = []
         for class_path in classes_path:
             self.objs_path += get_splited_data(class_path, mode)
